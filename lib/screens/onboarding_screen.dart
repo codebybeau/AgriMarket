@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'auth/login_screen.dart';
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -66,13 +68,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _getStarted() {
     // TODO: Change this to your Login/Register screen.
     // Example:
-    //
-    // Navigator.pushReplacement(
-    //   context,
-    //   MaterialPageRoute(
-    //     builder: (context) => const LoginScreen(),
-    //   ),
-    // );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
   }
 
   @override
