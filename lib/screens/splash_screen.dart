@@ -55,3 +55,4 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+//trial commit
