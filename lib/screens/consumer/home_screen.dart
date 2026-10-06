@@ -7,8 +7,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9F7),
-
-      // App bar
       appBar: AppBar(
         backgroundColor: const Color(0xFF176B3A),
         foregroundColor: Colors.white,
@@ -19,161 +17,146 @@ class HomeScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            onPressed: () {
-              // TODO: Open notifications
-            },
+            onPressed: () {},
             icon: const Icon(Icons.notifications_outlined),
           ),
           IconButton(
-            onPressed: () {
-              // TODO: Open cart
-            },
+            onPressed: () {},
             icon: const Icon(Icons.shopping_cart_outlined),
           ),
         ],
       ),
-
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Greeting
-              const Text(
-                'Good morning! 👋',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF176B3A),
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              const Text(
-                'What would you like to buy today?',
-                style: TextStyle(color: Colors.black54, fontSize: 15),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Search bar
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search products...',
-                  prefixIcon: const Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+        child: ScrollConfiguration(
+          behavior: const NoStretchScrollBehavior(),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Good morning! 👋',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF176B3A),
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF176B3A),
-                  borderRadius: BorderRadius.circular(18),
+                const SizedBox(height: 6),
+                const Text(
+                  'What would you like to buy today?',
+                  style: TextStyle(color: Colors.black54, fontSize: 15),
                 ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Fresh from local farms 🌱',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                const SizedBox(height: 20),
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search products...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 25),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF176B3A),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Fresh from local farms 🌱',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Shop fresh products directly from farmers.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
+                      SizedBox(height: 8),
+                      Text(
+                        'Shop fresh products directly from farmers.',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // Categories
-              const Text(
-                'Categories',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 15),
-
-              SizedBox(
-                height: 100,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: const [
-                    _CategoryItem(
-                      icon: Icons.eco_outlined,
-                      title: 'Vegetables',
-                    ),
-                    _CategoryItem(icon: Icons.apple_outlined, title: 'Fruits'),
-                    _CategoryItem(icon: Icons.grass, title: 'Grains'),
-                    _CategoryItem(
-                      icon: Icons.local_florist_outlined,
-                      title: 'Plants',
-                    ),
-                  ],
+                const SizedBox(height: 28),
+                const Text(
+                  'Categories',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-              ),
-
-              const SizedBox(height: 28),
-
-              // Products
-              const Text(
-                'Featured Products',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-
-              const SizedBox(height: 15),
-
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 4,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.78,
+                const SizedBox(height: 15),
+                SizedBox(
+                  height: 100,
+                  child: ScrollConfiguration(
+                    behavior: const NoStretchScrollBehavior(),
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const ClampingScrollPhysics(),
+                      children: const [
+                        _CategoryItem(
+                          icon: Icons.eco_outlined,
+                          title: 'Vegetables',
+                        ),
+                        _CategoryItem(
+                          icon: Icons.apple_outlined,
+                          title: 'Fruits',
+                        ),
+                        _CategoryItem(icon: Icons.grass, title: 'Grains'),
+                        _CategoryItem(
+                          icon: Icons.local_florist_outlined,
+                          title: 'Plants',
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                itemBuilder: (context, index) {
-                  return _ProductCard(
-                    name: [
-                      'Fresh Tomatoes',
-                      'Organic Rice',
-                      'Fresh Corn',
-                      'Carrots',
-                    ][index],
-                    price: [
-                      '₱80 / kg',
-                      '₱65 / kg',
-                      '₱50 / kg',
-                      '₱70 / kg',
-                    ][index],
-                  );
-                },
-              ),
-            ],
+                const SizedBox(height: 28),
+                const Text(
+                  'Featured Products',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 4,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 0.78,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _ProductCard(
+                      name: [
+                        'Fresh Tomatoes',
+                        'Organic Rice',
+                        'Fresh Corn',
+                        'Carrots',
+                      ][index],
+                      price: [
+                        '₱80 / kg',
+                        '₱65 / kg',
+                        '₱50 / kg',
+                        '₱70 / kg',
+                      ][index],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
-
-      // Bottom navigation
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         selectedItemColor: const Color(0xFF176B3A),
@@ -206,7 +189,19 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// Category widget
+class NoStretchScrollBehavior extends ScrollBehavior {
+  const NoStretchScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
 class _CategoryItem extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -227,7 +222,7 @@ class _CategoryItem extends StatelessWidget {
               color: const Color(0xFFE5F2E9),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.eco_outlined, color: Color(0xFF176B3A)),
+            child: Icon(icon, color: const Color(0xFF176B3A)),
           ),
           const SizedBox(height: 7),
           Text(
@@ -241,7 +236,6 @@ class _CategoryItem extends StatelessWidget {
   }
 }
 
-// Product card
 class _ProductCard extends StatelessWidget {
   final String name;
   final String price;
@@ -272,7 +266,6 @@ class _ProductCard extends StatelessWidget {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(10),
             child: Column(

@@ -28,14 +28,20 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: Color(0xFF176B3A),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('🌱', style: TextStyle(fontSize: 70)),
-            SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                'assets/images/white_bg_logo.png',
+                height: 100,
+              ),
+            ),
+            const SizedBox(height: 16),
             Text(
               'AgriMart',
               style: TextStyle(
