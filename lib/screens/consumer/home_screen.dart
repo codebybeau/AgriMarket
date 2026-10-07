@@ -1,287 +1,318 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/notification_provider.dart';
+
+import 'orders_screen.dart';
+import 'notification_screen.dart';
+import 'profile_screen.dart';
+import 'cart_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
+  void _goToPage(BuildContext context, Widget page) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9F7),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF176B3A),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'AgriMart',
-          style: TextStyle(fontWeight: FontWeight.bold),
+      backgroundColor: const Color(0xFFF5F6F5),
+
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
         ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_outlined),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.shopping_cart_outlined),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: ScrollConfiguration(
-          behavior: const NoStretchScrollBehavior(),
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Good morning! 👋',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF176B3A),
-                  ),
+
+        child: Column(
+          children: [
+            // HEADER
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.of(context).padding.top + 12,
+                16,
+                20,
+              ),
+              decoration: const BoxDecoration(
+                color: Color(0xFF176B3A),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'What would you like to buy today?',
-                  style: TextStyle(color: Colors.black54, fontSize: 15),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search products...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 25),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF176B3A),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: const Column(
+              ),
+
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // TOP ROW
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Fresh from local farms 🌱',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      // USER INFORMATION
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Good morning! 👋',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                              ),
+                            ),
+
+                            const SizedBox(height: 2),
+
+                            const Text(
+                              'Juan dela Cruz',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+
+                            const SizedBox(height: 3),
+
+                            Row(
+                              children: const [
+                                Icon(
+                                  Icons.location_on,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+
+                                SizedBox(width: 4),
+
+                                Text(
+                                  'Metro Manila (NCR)',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+
+                                SizedBox(width: 2),
+
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Shop fresh products directly from farmers.',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+
+                      // NOTIFICATION BUTTON
+                      Consumer<NotificationProvider>(
+                        builder: (context, notificationProvider, child) {
+                          final count = notificationProvider.unreadCount;
+
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+
+                                  onPressed: () {
+                                    _goToPage(
+                                      context,
+                                      const NotificationScreen(),
+                                    );
+                                  },
+
+                                  icon: const Icon(
+                                    Icons.notifications_outlined,
+                                    color: Colors.white,
+                                    size: 21,
+                                  ),
+                                ),
+                              ),
+
+                              // NOTIFICATION BADGE
+                              if (count > 0)
+                                Positioned(
+                                  right: -2,
+                                  top: -3,
+                                  child: Container(
+                                    width: 17,
+                                    height: 17,
+
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+
+                                    child: Center(
+                                      child: Text(
+                                        count > 99 ? '99+' : count.toString(),
+
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // CART BUTTON
+                      Container(
+                        width: 38,
+                        height: 38,
+
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+
+                          onPressed: () {
+                            _goToPage(context, const CartScreen());
+                          },
+
+                          icon: const Icon(
+                            Icons.shopping_cart_outlined,
+                            color: Colors.white,
+                            size: 21,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Categories',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 15),
-                SizedBox(
-                  height: 100,
-                  child: ScrollConfiguration(
-                    behavior: const NoStretchScrollBehavior(),
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const ClampingScrollPhysics(),
-                      children: const [
-                        _CategoryItem(
-                          icon: Icons.eco_outlined,
-                          title: 'Vegetables',
+
+                  const SizedBox(height: 18),
+
+                  // SEARCH BAR
+                  Container(
+                    height: 42,
+
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+
+                    child: const TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search products, farms, supplies...',
+
+                        hintStyle: TextStyle(
+                          color: Color(0xFF9AA3A0),
+                          fontSize: 14,
                         ),
-                        _CategoryItem(
-                          icon: Icons.apple_outlined,
-                          title: 'Fruits',
+
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: Color(0xFF9AA3A0),
+                          size: 20,
                         ),
-                        _CategoryItem(icon: Icons.grass, title: 'Grains'),
-                        _CategoryItem(
-                          icon: Icons.local_florist_outlined,
-                          title: 'Plants',
-                        ),
-                      ],
+
+                        border: InputBorder.none,
+
+                        contentPadding: EdgeInsets.symmetric(vertical: 11),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Featured Products',
+                ],
+              ),
+            ),
+
+            // HOME CONTENT
+            const Expanded(
+              child: Center(
+                child: Text(
+                  'No products available',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 15),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: 4,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                    childAspectRatio: 0.78,
-                  ),
-                  itemBuilder: (context, index) {
-                    return _ProductCard(
-                      name: [
-                        'Fresh Tomatoes',
-                        'Organic Rice',
-                        'Fresh Corn',
-                        'Carrots',
-                      ][index],
-                      price: [
-                        '₱80 / kg',
-                        '₱65 / kg',
-                        '₱50 / kg',
-                        '₱70 / kg',
-                      ][index],
-                    );
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
+
+      // BOTTOM NAVIGATION
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
-        selectedItemColor: const Color(0xFF176B3A),
-        unselectedItemColor: Colors.grey,
+
         type: BottomNavigationBarType.fixed,
+
+        selectedItemColor: const Color(0xFF176B3A),
+
+        unselectedItemColor: Colors.grey,
+
+        onTap: (index) {
+          if (index == 0) {
+            return;
+          }
+
+          if (index == 1) {
+            _goToPage(context, const OrdersScreen());
+          }
+
+          if (index == 2) {
+            _goToPage(context, const NotificationScreen());
+          }
+
+          if (index == 3) {
+            _goToPage(context, const ProfileScreen());
+          }
+        },
+
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storefront_outlined),
-            activeIcon: Icon(Icons.storefront),
-            label: 'Products',
-          ),
+
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_bag_outlined),
             activeIcon: Icon(Icons.shopping_bag),
             label: 'Orders',
           ),
+
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined),
+            activeIcon: Icon(Icons.notifications),
+            label: 'Notifications',
+          ),
+
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
             label: 'Profile',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class NoStretchScrollBehavior extends ScrollBehavior {
-  const NoStretchScrollBehavior();
-
-  @override
-  Widget buildOverscrollIndicator(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return child;
-  }
-}
-
-class _CategoryItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-
-  const _CategoryItem({required this.icon, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 90,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5F2E9),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: const Color(0xFF176B3A)),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProductCard extends StatelessWidget {
-  final String name;
-  final String price;
-
-  const _ProductCard({required this.name, required this.price});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F3EA),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.image_outlined,
-                size: 55,
-                color: Color(0xFF176B3A),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    color: Color(0xFF176B3A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

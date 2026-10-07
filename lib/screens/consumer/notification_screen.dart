@@ -5,12 +5,12 @@ import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
 
 import 'home_screen.dart';
-import 'notification_screen.dart';
+import 'orders_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 
-class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
+class NotificationScreen extends StatelessWidget {
+  const NotificationScreen({super.key});
 
   void _goToPage(BuildContext context, Widget page) {
     Navigator.pushReplacement(
@@ -37,13 +37,11 @@ class OrdersScreen extends StatelessWidget {
 
         child: Column(
           children: [
-            // =========================
-            // GREEN HEADER
-            // =========================
+            // HEADER
             Container(
               width: double.infinity,
               padding: EdgeInsets.fromLTRB(
-                16,
+                8,
                 MediaQuery.of(context).padding.top + 12,
                 16,
                 20,
@@ -55,13 +53,27 @@ class OrdersScreen extends StatelessWidget {
                   bottomRight: Radius.circular(28),
                 ),
               ),
-
               child: Row(
                 children: [
-                  // ORDERS TITLE
+                  // BACK BUTTON
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      _goToPage(context, const HomeScreen());
+                    },
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+
+                  const SizedBox(width: 4),
+
+                  // TITLE
                   const Expanded(
                     child: Text(
-                      'Orders',
+                      'Notifications',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -70,70 +82,7 @@ class OrdersScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // =========================
-                  // NOTIFICATION BUTTON
-                  // =========================
-                  Consumer<NotificationProvider>(
-                    builder: (context, notificationProvider, child) {
-                      final count = notificationProvider.unreadCount;
-
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                _goToPage(context, const NotificationScreen());
-                              },
-                              icon: const Icon(
-                                Icons.notifications_outlined,
-                                color: Colors.white,
-                                size: 21,
-                              ),
-                            ),
-                          ),
-
-                          // RED NOTIFICATION BADGE
-                          if (count > 0)
-                            Positioned(
-                              right: -2,
-                              top: -3,
-                              child: Container(
-                                width: 17,
-                                height: 17,
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    count > 99 ? '99+' : count.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  // =========================
                   // CART BUTTON
-                  // =========================
                   Container(
                     width: 38,
                     height: 38,
@@ -157,26 +106,93 @@ class OrdersScreen extends StatelessWidget {
               ),
             ),
 
-            // =========================
-            // ORDERS CONTENT
-            // =========================
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'No orders yet',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
+            // NOTIFICATIONS
+            Expanded(
+              child: Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, child) {
+                  final notifications = notificationProvider.notifications;
+
+                  // EMPTY STATE
+                  if (notifications.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No notifications',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // NOTIFICATION LIST
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        elevation: 1,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+
+                          // ICON
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFF176B3A),
+                            child: const Icon(
+                              Icons.message,
+                              color: Colors.white,
+                            ),
+                          ),
+
+                          // TITLE
+                          title: Text(
+                            notification.title,
+                            style: TextStyle(
+                              fontWeight: notification.isRead
+                                  ? FontWeight.normal
+                                  : FontWeight.bold,
+                            ),
+                          ),
+
+                          // MESSAGE
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(notification.message),
+                          ),
+
+                          // UNREAD DOT
+                          trailing: notification.isRead
+                              ? null
+                              : const Icon(
+                                  Icons.circle,
+                                  color: Colors.red,
+                                  size: 10,
+                                ),
+
+                          // MARK AS READ
+                          onTap: () {
+                            notificationProvider.markAsRead(notification.id);
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
 
-      // =========================
       // BOTTOM NAVIGATION
-      // =========================
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 1,
+        currentIndex: 2,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF176B3A),
         unselectedItemColor: Colors.grey,
@@ -187,11 +203,11 @@ class OrdersScreen extends StatelessWidget {
           }
 
           if (index == 1) {
-            return;
+            _goToPage(context, const OrdersScreen());
           }
 
           if (index == 2) {
-            _goToPage(context, const NotificationScreen());
+            return;
           }
 
           if (index == 3) {
@@ -205,19 +221,16 @@ class OrdersScreen extends StatelessWidget {
             activeIcon: Icon(Icons.home),
             label: 'Home',
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.shopping_bag_outlined),
             activeIcon: Icon(Icons.shopping_bag),
             label: 'Orders',
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications_outlined),
             activeIcon: Icon(Icons.notifications),
             label: 'Notifications',
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
             activeIcon: Icon(Icons.person),
