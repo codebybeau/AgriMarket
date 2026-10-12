@@ -91,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
                                 width: 38,
                                 height: 38,
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: IconButton(
@@ -148,7 +148,7 @@ class ProfileScreen extends StatelessWidget {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -448,7 +448,7 @@ class ProfileScreen extends StatelessWidget {
       child: Container(
         height: 42,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.12),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(9),
         ),
         child: Column(
@@ -497,7 +497,7 @@ class ProfileScreen extends StatelessWidget {
           width: 42,
           height: 42,
           decoration: BoxDecoration(
-            color: const Color(0xFF176B3A).withOpacity(0.10),
+            color: const Color(0xFF176B3A).withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: const Color(0xFF176B3A), size: 22),

@@ -84,7 +84,7 @@ class OrdersScreen extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
@@ -138,7 +138,7 @@ class OrdersScreen extends StatelessWidget {
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
