@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/consumer/home_screen.dart';
+import 'screens/splash_screen.dart';
 
 class AgriMart extends StatelessWidget {
   const AgriMart({super.key});
@@ -16,7 +16,7 @@ class AgriMart extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF176B3A)),
         fontFamily: 'Arial',
       ),
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
