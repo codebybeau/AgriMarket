@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'home_screen.dart';
+import 'chat_screen.dart'; // <--- Siguraduhing naka-import ang chat_screen.dart
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -115,7 +116,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     },
   ];
 
-  // Calculate total unread messages
   int get _totalUnread {
     int total = 0;
     for (var c in _conversations) {
@@ -124,7 +124,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return total;
   }
 
-  // Filtered list based on search query
   List<Map<String, dynamic>> get _filteredConversations {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return _conversations;
@@ -150,19 +149,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
         reverseTransitionDuration: Duration.zero,
       ),
     );
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: darkGreen,
-          duration: const Duration(seconds: 2),
-        ),
-      );
   }
 
   @override
@@ -199,7 +185,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back Arrow & Header Title
                   Row(
                     children: [
                       IconButton(
@@ -316,13 +301,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final bool hasUnread = (chat['unreadCount'] as int) > 0;
 
     return InkWell(
-      onTap: () => _showMessage('Opening chat with ${chat['name']}'),
+      // Konekto patungo sa ChatScreen kapag pinindot ang conversation
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const ChatScreen(),
+          ),
+        );
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar with Active Online Status Badge
             Stack(
               children: [
                 CircleAvatar(
@@ -347,13 +339,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ],
             ),
             const SizedBox(width: 12),
-
-            // Name & Message Text
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -362,8 +351,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           chat['name'],
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight:
-                                hasUnread ? FontWeight.bold : FontWeight.w600,
+                            fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
                             color: ink,
                           ),
                           maxLines: 1,
@@ -376,15 +364,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           color: hasUnread ? primaryGreen : mutedText,
-                          fontWeight:
-                              hasUnread ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-
-                  // Message Preview & Unread Counter Row
                   Row(
                     children: [
                       Expanded(
@@ -397,8 +382,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             color: hasUnread
                                 ? const Color(0xFF2C3E30)
                                 : const Color(0xFF7A867E),
-                            fontWeight:
-                                hasUnread ? FontWeight.w500 : FontWeight.normal,
+                            fontWeight: hasUnread ? FontWeight.w500 : FontWeight.normal,
                           ),
                         ),
                       ),
