@@ -12,6 +12,19 @@ import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
 
+class NoStretchScrollBehavior extends MaterialScrollBehavior {
+  const NoStretchScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child; // Removes the overscroll stretch effect
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -251,41 +264,47 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: pageBackground,
         body: SafeArea(
           top: false,
-          child: CustomScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            slivers: [
-              SliverToBoxAdapter(child: _buildHeader()),
-              SliverToBoxAdapter(child: _buildSaleBanner()),
-              SliverToBoxAdapter(child: _buildSpecialOffers()),
-              SliverToBoxAdapter(child: _buildCategories()),
-              SliverToBoxAdapter(child: _buildProductSectionTitle()),
-              if (_filteredProducts.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text('No products found. Try another search.'),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          mainAxisExtent: 290,
-                        ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) =>
-                          _buildProductCard(_filteredProducts[index]),
-                      childCount: _filteredProducts.length,
+          child: ScrollConfiguration(
+            behavior: const NoStretchScrollBehavior(),
+            child: CustomScrollView(
+              physics: const ClampingScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeader()),
+                SliverToBoxAdapter(child: _buildSaleBanner()),
+                SliverToBoxAdapter(child: _buildSpecialOffers()),
+                SliverToBoxAdapter(child: _buildCategories()),
+                SliverToBoxAdapter(child: _buildProductSectionTitle()),
+
+                if (_filteredProducts.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Text('No products found. Try another search.'),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            mainAxisExtent: 290,
+                          ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) =>
+                            _buildProductCard(_filteredProducts[index]),
+                        childCount: _filteredProducts.length,
+                      ),
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 14)),
-            ],
+
+                const SliverToBoxAdapter(child: SizedBox(height: 14)),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: _buildBottomNavigation(),
@@ -316,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const Text(
                       'Good morning! 👋',
-                      style: TextStyle(color: Color(0xFFD7E9DC), fontSize: 11),
+                      style: TextStyle(color: Color(0xFFD7E9DC), fontSize: 16),
                     ),
                     const SizedBox(height: 3),
 
@@ -327,31 +346,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            fontSize: 30,
                           ),
                         );
                       },
-                    ),
-
-                    const SizedBox(height: 4),
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          color: Colors.white,
-                          size: 13,
-                        ),
-                        SizedBox(width: 3),
-                        Text(
-                          'Metro Manila (NCR)',
-                          style: TextStyle(color: Colors.white70, fontSize: 10),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Colors.white70,
-                          size: 15,
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -597,8 +595,9 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
             itemCount: offers.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
               final offer = offers[i];
               return Container(

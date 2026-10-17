@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'settings_screen.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import 'marketplace_screen.dart';
 import 'home_screen.dart';
@@ -85,6 +87,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ==========================================
 
   Widget _buildProfileHeader() {
+    final auth = context.watch<AuthProvider>();
+    final isLoggedIn = auth.isLoggedIn;
+    final name = auth.fullName.trim();
+    final displayName = name.isEmpty || name == 'Guest' ? 'Guest User' : name;
+
     return Container(
       padding: const EdgeInsets.only(bottom: 20),
       decoration: const BoxDecoration(
@@ -95,7 +102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         bottom: false,
         child: Column(
           children: [
-            // Header Top Bar: Settings, Cart, Notification
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -103,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _headerAction(
                     Icons.settings_outlined,
-                    onTap: () => _showMessage('Settings'),
+                    onTap: () => _goToPage(const SettingsScreen()),
                   ),
                   const SizedBox(width: 8),
                   _headerAction(
@@ -122,7 +128,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Profile Info (Guest View)
+            // Real user information when logged in
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
@@ -144,19 +150,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
+                      children: [
                         Text(
-                          'Guest User',
-                          style: TextStyle(
+                          isLoggedIn ? displayName : 'Guest User',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'Sign in or create an account',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                          isLoggedIn
+                              ? (auth.role == 'farmer'
+                                    ? 'Farmer Account'
+                                    : 'Consumer Account')
+                              : 'Sign in or create an account',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -165,54 +180,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Authentication Buttons (Log In & Create Account)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 38,
-                      child: ElevatedButton(
-                        onPressed: () => _goToPage(const LoginScreen()),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: primaryGreen,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+            // Show authentication buttons only to guests
+            if (!isLoggedIn)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 38,
+                        child: ElevatedButton(
+                          onPressed: () => _goToPage(const LoginScreen()),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: primaryGreen,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                        ),
-                        child: const Text(
-                          'Log In',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          child: const Text(
+                            'Log In',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: SizedBox(
-                      height: 38,
-                      child: OutlinedButton(
-                        onPressed: () => _goToPage(const RegisterScreen()),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 38,
+                        child: OutlinedButton(
+                          onPressed: () => _goToPage(const RegisterScreen()),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
-                        ),
-                        child: const Text(
-                          'Create Account',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          child: const Text(
+                            'Create Account',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -397,9 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
-                  child: SizedBox(),
-                ),
+                const Expanded(child: SizedBox()),
               ],
             ),
           ),
@@ -619,7 +633,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10,
-                        color: isSubtitleHighlight ? highlightOrange : mutedText,
+                        color: isSubtitleHighlight
+                            ? highlightOrange
+                            : mutedText,
                       ),
                     ),
                 ],
