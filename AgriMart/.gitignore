@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+<<<<<<< HEAD
+=======
+
+build/
+
+.dart_tool/
+
+.flutter-plugins
+
+.flutter-plugins-dependencies
+>>>>>>> 726461b0fdee3727b5a55aab85228d5ccc7ed726
