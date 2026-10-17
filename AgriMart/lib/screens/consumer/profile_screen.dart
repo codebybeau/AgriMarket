@@ -442,7 +442,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.support_agent, color: mutedText),
             title: const Text(
-              'Priority Customer Service',
+              'Customer Service',
               style: TextStyle(fontSize: 13, color: ink),
             ),
             trailing: const Icon(
