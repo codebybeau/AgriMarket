@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../consumer/profile_screen.dart';
+import '../consumer/home_screen.dart';
+import '../farmer/farmer_home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -27,6 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -42,16 +47,102 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => page,
+        pageBuilder: (_, _, _) => page,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
     );
   }
 
-  void _handleRegister() {
-    _showMessage('Account created successfully!');
-    _goToPage(const ProfileScreen());
+  Future<void> _handleRegister() async {
+    if (_isLoading) return;
+
+    final fullName = _fullNameController.text.trim();
+    final mobile = _mobileController.text.trim();
+    final email = _emailController.text.trim();
+    final farmName = _farmNameController.text.trim();
+    final password = _passwordController.text;
+
+    // Validate required fields.
+    if (fullName.isEmpty ||
+        mobile.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty) {
+      _showMessage('Please fill in all required fields.');
+      return;
+    }
+
+    // Basic email validation.
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+    if (!emailRegex.hasMatch(email)) {
+      _showMessage('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      _showMessage('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (_accountType == 'Seller' && farmName.isEmpty) {
+      _showMessage('Please enter your farm or business name.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final auth = context.read<AuthProvider>();
+
+      final success = await auth.register(
+        fullName: fullName,
+        mobile: mobile,
+        email: email,
+        password: password,
+        accountType: _accountType,
+        farmName: _accountType == 'Seller' ? farmName : null,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        // Some Supabase projects require email confirmation.
+        // If confirmation is enabled, the user may need to verify
+        // their email before they can log in.
+        final message = auth.infoMessage;
+
+        _showMessage(
+          message?.isNotEmpty == true
+              ? message!
+              : 'Account created successfully!',
+        );
+
+        // Navigate based on the selected account type.
+        if (_accountType == 'Seller') {
+          _goToPage(const FarmerHome());
+        } else {
+          _goToPage(const HomeScreen());
+        }
+      } else {
+        _showMessage(
+          auth.errorMessage?.isNotEmpty == true
+              ? auth.errorMessage!
+              : 'Registration failed. Please try again.',
+        );
+      }
+    } catch (e, stackTrace) {
+      if (!mounted) return;
+      _showMessage('REGISTRATION ERROR: $e');
+      debugPrint('Registration error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (!mounted) return;
+      _showMessage('Registration failed. Please try again: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _showMessage(String message) {
@@ -80,33 +171,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
         body: SingleChildScrollView(
           child: Column(
             children: [
-              // HEADER CARD
               _buildHeaderCard(),
 
-              // FORM CONTENT
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ACCOUNT TYPE TOGGLE SWITCH
                     _buildAccountTypeToggle(),
                     const SizedBox(height: 20),
 
-                    // Full Name Field
                     _buildFieldLabel('FULL NAME'),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _fullNameController,
                       textCapitalization: TextCapitalization.words,
                       style: const TextStyle(fontSize: 13, color: ink),
-                      decoration: _inputDecoration(
-                        hintText: 'Enter full name',
-                      ),
+                      decoration: _inputDecoration(hintText: 'Enter full name'),
                     ),
                     const SizedBox(height: 16),
 
-                    // Mobile Number Field
                     _buildFieldLabel('MOBILE NUMBER'),
                     const SizedBox(height: 6),
                     TextField(
@@ -119,7 +206,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Email Address Field
                     _buildFieldLabel('EMAIL ADDRESS'),
                     const SizedBox(height: 6),
                     TextField(
@@ -132,7 +218,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Extra field for Seller/Farmer mode
                     if (_accountType == 'Seller') ...[
                       _buildFieldLabel('FARM/BUSINESS NAME'),
                       const SizedBox(height: 6),
@@ -147,7 +232,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // Password Field
                     _buildFieldLabel('PASSWORD'),
                     const SizedBox(height: 6),
                     TextField(
@@ -174,7 +258,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Terms & Conditions Disclaimer
                     Wrap(
                       alignment: WrapAlignment.start,
                       children: [
@@ -216,7 +299,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Create Account Button with Shadow Effect
                     Container(
                       height: 48,
                       decoration: BoxDecoration(
@@ -224,7 +306,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: darkGreen.withOpacity(0.35),
+                            color: darkGreen.withValues(alpha: 0.35),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -233,24 +315,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _handleRegister,
+                          onTap: _isLoading ? null : _handleRegister,
                           borderRadius: BorderRadius.circular(12),
-                          child: const Center(
-                            child: Text(
-                              'Create Account',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          child: Center(
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // Already have an account? Log In
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -282,10 +372,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // ==============================================
-  // HEADER CARD BUILDER
-  // ==============================================
-
   Widget _buildHeaderCard() {
     return Container(
       width: double.infinity,
@@ -302,7 +388,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back Button
           GestureDetector(
             onTap: () => _goToPage(const ProfileScreen()),
             child: Row(
@@ -321,8 +406,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Title & Subtitle
           const Text(
             'Create Account',
             style: TextStyle(
@@ -334,19 +417,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 4),
           const Text(
             'Join the AgriMart community',
-            style: TextStyle(
-              color: Color(0xFFD0E5D5),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Color(0xFFD0E5D5), fontSize: 12),
           ),
         ],
       ),
     );
   }
-
-  // ==============================================
-  // ACCOUNT TYPE TOGGLE SWITCH
-  // ==============================================
 
   Widget _buildAccountTypeToggle() {
     return Container(
@@ -363,7 +439,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => setState(() => _accountType = 'Buyer'),
               child: Container(
                 decoration: BoxDecoration(
-                  color: _accountType == 'Buyer' ? darkGreen : Colors.transparent,
+                  color: _accountType == 'Buyer'
+                      ? darkGreen
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
@@ -372,7 +450,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: _accountType == 'Buyer' ? Colors.white : const Color(0xFF6B756E),
+                    color: _accountType == 'Buyer'
+                        ? Colors.white
+                        : const Color(0xFF6B756E),
                   ),
                 ),
               ),
@@ -383,7 +463,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onTap: () => setState(() => _accountType = 'Seller'),
               child: Container(
                 decoration: BoxDecoration(
-                  color: _accountType == 'Seller' ? darkGreen : Colors.transparent,
+                  color: _accountType == 'Seller'
+                      ? darkGreen
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
@@ -392,7 +474,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: _accountType == 'Seller' ? Colors.white : const Color(0xFF6B756E),
+                    color: _accountType == 'Seller'
+                        ? Colors.white
+                        : const Color(0xFF6B756E),
                   ),
                 ),
               ),
@@ -402,10 +486,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     );
   }
-
-  // ==============================================
-  // HELPER COMPONENTS
-  // ==============================================
 
   Widget _buildFieldLabel(String label) {
     return Text(
@@ -419,7 +499,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hintText, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    required String hintText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(color: Color(0xFFADB5AF), fontSize: 13),
@@ -429,24 +512,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFD6DDD8),
-          width: 1.0,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD6DDD8), width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFD6DDD8),
-          width: 1.0,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD6DDD8), width: 1.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: primaryGreen,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: primaryGreen, width: 1.5),
       ),
     );
   }

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
 import '../consumer/profile_screen.dart';
+import '../consumer/home_screen.dart';
+import '../farmer/farmer_home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +24,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -40,9 +46,81 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleLogin() {
-    _showMessage('Logged in successfully!');
-    _goToPage(const ProfileScreen());
+  // LOGIN FUNCTION
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter your email and password.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+
+      final success = await auth.login(email: email, password: password);
+
+      if (!mounted) return;
+
+      if (success) {
+        debugPrint('Logged in: ${auth.currentUser?.email}');
+        debugPrint('User metadata: ${auth.currentUser?.userMetadata}');
+        debugPrint('Full name: ${auth.fullName}');
+        debugPrint('User role: ${auth.role}');
+
+        _showMessage('Logged in successfully!');
+
+        // Navigate based on the user's registered account type.
+        if (auth.isFarmer) {
+          _goToPage(const FarmerHome());
+        } else {
+          _goToPage(const HomeScreen());
+        }
+      } else {
+        _showMessage(auth.errorMessage ?? 'Login failed. Please try again.');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      debugPrint('Login error: $e');
+      _showMessage('Login failed. Please check your credentials.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // PASSWORD RESET FUNCTION
+  Future<void> _handleForgotPassword() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      _showMessage('Please enter your email address first.');
+      return;
+    }
+
+    try {
+      await context.read<AuthProvider>().resetPassword(email);
+
+      if (!mounted) return;
+
+      _showMessage(
+        'If your account is eligible, a password reset email will be sent.',
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      debugPrint('Password reset error: $e');
+      _showMessage('Could not send reset email. Please try again.');
+    }
   }
 
   void _showMessage(String message) {
@@ -76,11 +154,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // FORM CONTENT
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Email or Mobile Field Label & Input
+                    // EMAIL OR MOBILE FIELD
                     _buildFieldLabel('EMAIL OR MOBILE NUMBER'),
                     const SizedBox(height: 6),
                     TextField(
@@ -93,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password Label & Input
+                    // PASSWORD FIELD
                     _buildFieldLabel('PASSWORD'),
                     const SizedBox(height: 6),
                     TextField(
@@ -119,11 +200,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    // Forgot Password
+                    // FORGOT PASSWORD
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () => _showMessage('Reset Password requested.'),
+                        onPressed: _isLoading ? null : _handleForgotPassword,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           minimumSize: Size.zero,
@@ -141,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Log In Button with Shadow Effect
+                    // LOG IN BUTTON
                     Container(
                       height: 48,
                       decoration: BoxDecoration(
@@ -158,24 +239,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _handleLogin,
+                          onTap: _isLoading ? null : _handleLogin,
                           borderRadius: BorderRadius.circular(12),
-                          child: const Center(
-                            child: Text(
-                              'Log In',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          child: Center(
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Log In',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // OR CONTINUE WITH Divider
+                    // OR CONTINUE WITH DIVIDER
                     Row(
                       children: const [
                         Expanded(child: Divider(color: Color(0xFFE2E8E4))),
@@ -195,14 +285,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Google & Facebook Social Buttons
+                    // GOOGLE & FACEBOOK BUTTONS
                     Row(
                       children: [
                         Expanded(
                           child: _buildSocialButton(
                             label: 'Google',
                             icon: _buildGoogleLogo(),
-                            onTap: () => _showMessage('Google login'),
+                            onTap: () => _showMessage(
+                              'Google login is not configured yet.',
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -214,14 +306,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Color(0xFF1877F2),
                               size: 20,
                             ),
-                            onTap: () => _showMessage('Facebook login'),
+                            onTap: () => _showMessage(
+                              'Facebook login is not configured yet.',
+                            ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
 
-                    // Don't have an account? Sign Up
+                    // SIGN UP
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -247,7 +341,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Divider(color: Color(0xFFE2E8E4)),
                     const SizedBox(height: 16),
 
-                    // Are you a farmer or seller? Access Seller Dashboard
+                    // SELLER DASHBOARD
                     const Center(
                       child: Text(
                         'Are you a farmer or seller?',
@@ -258,7 +352,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       height: 44,
                       child: OutlinedButton(
-                        onPressed: () => _showMessage('Opening Seller Dashboard'),
+                        onPressed: () {
+                          _showMessage(
+                            'Please log in using your registered farmer account.',
+                          );
+                        },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: primaryGreen,
                           side: const BorderSide(color: primaryGreen),
@@ -286,9 +384,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ==============================================
   // HEADER CARD BUILDER
-  // ==============================================
 
   Widget _buildHeaderCard() {
     return Container(
@@ -306,7 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back Button
+          // BACK BUTTON
           GestureDetector(
             onTap: () => _goToPage(const ProfileScreen()),
             child: Row(
@@ -326,7 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Logo & Title
+          // LOGO & TITLE
           Center(
             child: Column(
               children: [
@@ -365,10 +461,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 4),
                 const Text(
                   'Sign in to your AgriMart account',
-                  style: TextStyle(
-                    color: Color(0xFFD0E5D5),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Color(0xFFD0E5D5), fontSize: 12),
                 ),
               ],
             ),
@@ -378,9 +471,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ==============================================
   // HELPER COMPONENTS
-  // ==============================================
 
   Widget _buildFieldLabel(String label) {
     return Text(
@@ -394,7 +485,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hintText, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    required String hintText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(color: Color(0xFFADB5AF), fontSize: 13),
@@ -404,24 +498,15 @@ class _LoginScreenState extends State<LoginScreen> {
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFD6DDD8),
-          width: 1.0,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD6DDD8), width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFD6DDD8),
-          width: 1.0,
-        ),
+        borderSide: const BorderSide(color: Color(0xFFD6DDD8), width: 1.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: primaryGreen,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: primaryGreen, width: 1.5),
       ),
     );
   }

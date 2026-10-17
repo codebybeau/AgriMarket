@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
+
 import '../../providers/notification_provider.dart';
 import 'marketplace_screen.dart';
 import 'notification_screen.dart';
@@ -311,22 +313,28 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'Good morning! 👋',
                       style: TextStyle(color: Color(0xFFD7E9DC), fontSize: 11),
                     ),
-                    SizedBox(height: 3),
-                    Text(
-                      'Juan dela Cruz',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                      ),
+                    const SizedBox(height: 3),
+
+                    Consumer<AuthProvider>(
+                      builder: (context, auth, child) {
+                        return Text(
+                          auth.fullName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        );
+                      },
                     ),
-                    SizedBox(height: 4),
-                    Row(
+
+                    const SizedBox(height: 4),
+                    const Row(
                       children: [
                         Icon(
                           Icons.location_on_outlined,
