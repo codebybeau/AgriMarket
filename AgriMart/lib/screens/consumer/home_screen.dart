@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
 import 'marketplace_screen.dart';
 import 'notification_screen.dart';
-import 'messages_screen.dart'; // <-- 1. IMPORT MESSAGES SCREEN
+import 'messages_screen.dart'; 
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
