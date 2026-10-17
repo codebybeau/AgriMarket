@@ -1,16 +1,3 @@
-import 'package:flutter/material.dart';
-
-import 'screens/splash_screen.dart';
-
-class AgriMartApp extends StatelessWidget {
-  const AgriMartApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'AgriMart',
-      home: const SplashScreen(),
-    );
-  }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:33e262774cb10e7caed64d8fa77563baf0c38a96e7492778970267c671b08bda
+size 362

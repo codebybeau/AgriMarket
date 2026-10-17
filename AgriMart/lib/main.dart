@@ -1,27 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'app.dart';
-import 'providers/auth_provider.dart';
-import 'providers/notification_provider.dart';
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  await Supabase.initialize(
-    url: 'https://bbcruwusldykxdycdixj.supabase.co',
-    publishableKey: 'sb_publishable_YG6XgbjfOLxYrmLqBhBgdA_Kj9zVxR_',
-  );
-  debugPrint('Supabase initialized successfully!');
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-      ],
-      child: const AgriMartApp(),
-    ),
-  );
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:58c447678380e4a6ac8df9f48f707c1761ab9be26b9170b7c327f301d68e130f
+size 795
