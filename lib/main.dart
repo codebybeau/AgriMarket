@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
-import 'providers/cart_provider.dart';
+import 'providers/auth_provider.dart';
 import 'providers/notification_provider.dart';
-import 'providers/order_provider.dart';
-import 'providers/product_provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://bbcruwusldykxdycdixj.supabase.co',
+    publishableKey: 'sb_publishable_YG6XgbjfOLxYrmLqBhBgdA_Kj9zVxR_',
+  );
+  debugPrint('Supabase initialized successfully!');
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
-      child: const AgriMart(),
+      child: const AgriMartApp(),
     ),
   );
 }
