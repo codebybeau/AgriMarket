@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/notification_provider.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -20,11 +21,10 @@ class _CartScreenState extends State<CartScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
-  // AGRIMART THEMED MOCK CART DATA
   final List<Map<String, dynamic>> _cartShops = [
     {
       'shopName': 'Dela Cruz Family Farm',
-      'isMall': true, // Used for verified farm badge
+      'isMall': true,
       'isPreferred': false,
       'selected': false,
       'items': [
@@ -65,7 +65,8 @@ class _CartScreenState extends State<CartScreen> {
           'price': 340.00,
           'quantity': 1,
           'selected': false,
-          'image': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
+          'image':
+              'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
           'badge': null,
         },
       ],
@@ -83,7 +84,8 @@ class _CartScreenState extends State<CartScreen> {
           'price': 350.00,
           'quantity': 1,
           'selected': false,
-          'image': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
+          'image':
+              'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
           'badge': null,
         },
       ],
@@ -116,7 +118,6 @@ class _CartScreenState extends State<CartScreen> {
       );
   }
 
-  // Calculate overall total price of selected items
   double get _totalPrice {
     double total = 0.0;
     for (var shop in _cartShops) {
@@ -129,7 +130,6 @@ class _CartScreenState extends State<CartScreen> {
     return total;
   }
 
-  // Calculate total count of selected items
   int get isSelected {
     int count = 0;
     for (var shop in _cartShops) {
@@ -142,7 +142,6 @@ class _CartScreenState extends State<CartScreen> {
     return count;
   }
 
-  // Check if all items across all shops are selected
   bool get _isAllSelected {
     if (_cartShops.isEmpty) return false;
     for (var shop in _cartShops) {
@@ -153,7 +152,6 @@ class _CartScreenState extends State<CartScreen> {
     return true;
   }
 
-  // Select/Deselect All
   void _toggleSelectAll(bool? val) {
     final newValue = val ?? false;
     setState(() {
@@ -166,7 +164,6 @@ class _CartScreenState extends State<CartScreen> {
     });
   }
 
-  // Select/Deselect Shop
   void _toggleShopSelect(Map<String, dynamic> shop, bool? val) {
     final newValue = val ?? false;
     setState(() {
@@ -177,7 +174,6 @@ class _CartScreenState extends State<CartScreen> {
     });
   }
 
-  // Toggle Individual Item Selection
   void _toggleItemSelect(
     Map<String, dynamic> shop,
     Map<String, dynamic> item,
@@ -191,7 +187,6 @@ class _CartScreenState extends State<CartScreen> {
     });
   }
 
-  // Change Quantity
   void _updateQuantity(Map<String, dynamic> item, int delta) {
     setState(() {
       final newQty = (item['quantity'] as int) + delta;
@@ -216,9 +211,6 @@ class _CartScreenState extends State<CartScreen> {
           top: false,
           child: Column(
             children: [
-              // ==============================================
-              // GREEN TOP HEADER
-              // ==============================================
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -320,10 +312,6 @@ class _CartScreenState extends State<CartScreen> {
                   ],
                 ),
               ),
-
-              // ==============================================
-              // CART SHOP CARDS LIST
-              // ==============================================
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(
@@ -336,15 +324,10 @@ class _CartScreenState extends State<CartScreen> {
                   },
                 ),
               ),
-
-              // ==============================================
-              // VOUCHERS & REWARDS BAR
-              // ==============================================
               Container(
                 color: Colors.white,
                 child: Column(
                   children: [
-                    // Platform Vouchers Row
                     InkWell(
                       onTap: () => _showMessage('Voucher selection opened'),
                       child: Padding(
@@ -386,8 +369,6 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-                    // AgriCoins Toggle Row
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -440,10 +421,6 @@ class _CartScreenState extends State<CartScreen> {
                   ],
                 ),
               ),
-
-              // ==============================================
-              // BOTTOM CHECKOUT BAR
-              // ==============================================
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
@@ -460,11 +437,9 @@ class _CartScreenState extends State<CartScreen> {
                   vertical: 8,
                 ),
                 child: SafeArea(
-                  // Added SafeArea here so it doesn't overlap with iOS home indicators
                   top: false,
                   child: Row(
                     children: [
-                      // Select All Checkbox
                       Row(
                         children: [
                           SizedBox(
@@ -487,8 +462,6 @@ class _CartScreenState extends State<CartScreen> {
                         ],
                       ),
                       const Spacer(),
-
-                      // Total Amount Text
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
@@ -512,14 +485,35 @@ class _CartScreenState extends State<CartScreen> {
                         ],
                       ),
                       const SizedBox(width: 12),
-
-                      // Checkout Button
                       SizedBox(
                         height: 42,
                         child: ElevatedButton(
                           onPressed: isSelected == 0
                               ? null
-                              : () => _showMessage('Proceeding to Checkout!'),
+                              : () {
+                                  final List<Map<String, dynamic>> selectedItems = [];
+                                  for (var shop in _cartShops) {
+                                    for (var item in shop['items']) {
+                                      if (item['selected'] == true) {
+                                        selectedItems.add({
+                                          ...item,
+                                          'shopName': shop['shopName'],
+                                        });
+                                      }
+                                    }
+                                  }
+
+                                  Navigator.pushReplacement(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder: (_, _, _) => CheckoutScreen(
+                                        checkoutItems: selectedItems,
+                                      ),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryGreen,
                             disabledBackgroundColor: Colors.grey.shade300,
@@ -550,10 +544,6 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  // ==============================================
-  // SHOP CARD WIDGET
-  // ==============================================
-
   Widget _buildShopCard(Map<String, dynamic> shop) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -571,7 +561,6 @@ class _CartScreenState extends State<CartScreen> {
       ),
       child: Column(
         children: [
-          // SHOP HEADER ROW
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 12, 6),
             child: Row(
@@ -589,8 +578,6 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Mall / Preferred Badge
                 if (shop['isMall'] == true)
                   Container(
                     margin: const EdgeInsets.only(right: 6),
@@ -631,7 +618,6 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                   ),
-
                 Expanded(
                   child: Row(
                     children: [
@@ -655,7 +641,6 @@ class _CartScreenState extends State<CartScreen> {
                     ],
                   ),
                 ),
-
                 TextButton(
                   onPressed: () => _showMessage('Editing shop items'),
                   style: TextButton.styleFrom(
@@ -672,8 +657,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // ITEM CARDS IN THIS SHOP
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -685,10 +668,7 @@ class _CartScreenState extends State<CartScreen> {
               return _buildItemRow(shop, item);
             },
           ),
-
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // SHOP VOUCHER ROW
           InkWell(
             onTap: () => _showMessage('Add shop voucher code'),
             child: Padding(
@@ -716,17 +696,12 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  // ==============================================
-  // INDIVIDUAL ITEM ROW
-  // ==============================================
-
   Widget _buildItemRow(Map<String, dynamic> shop, Map<String, dynamic> item) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item Checkbox
           SizedBox(
             width: 24,
             height: 24,
@@ -740,8 +715,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(width: 8),
-
-          // Item Image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
@@ -758,8 +731,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Item Details & Controls
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -775,8 +746,6 @@ class _CartScreenState extends State<CartScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-
-                // Variant selector dropdown
                 if (item['variant'] != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -806,8 +775,6 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   ),
                 const SizedBox(height: 8),
-
-                // Price & Quantity Control Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -819,8 +786,6 @@ class _CartScreenState extends State<CartScreen> {
                         color: primaryGreen,
                       ),
                     ),
-
-                    // Quantity Stepper (- 1 +)
                     Container(
                       height: 26,
                       decoration: BoxDecoration(
