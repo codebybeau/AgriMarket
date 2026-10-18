@@ -1,7 +1,0 @@
-com.example.agri_market.app-debug-0 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\android\app\src\debug\res
-com.example.agri_market.app-main-1 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\android\app\src\main\res
-com.example.agri_market.app-pngs-2 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\build\app\generated\res\pngs\debug
-com.example.agri_market.app-updated_navigation_xml-3 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\build\app\generated\updated_navigation_xml\debug
-com.example.agri_market.app-packageDebugResources-4 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\build\app\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.example.agri_market.app-packageDebugResources-5 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\build\app\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.example.agri_market.app-debug-6 C:\Users\PERSONAL\OneDrive\Documents\AgriMarket\agri_market\AgriMart\build\app\intermediates\merged_res\debug\mergeDebugResources
