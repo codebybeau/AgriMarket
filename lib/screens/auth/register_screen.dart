@@ -6,7 +6,6 @@ import '../../providers/auth_provider.dart';
 import 'login_screen.dart';
 import '../consumer/profile_screen.dart';
 import '../consumer/home_screen.dart';
-import '../farmer/farmer_home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -22,12 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
-  String _accountType = 'Buyer';
-
-  final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _mobileController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _farmNameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
@@ -35,10 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _fullNameController.dispose();
     _mobileController.dispose();
-    _emailController.dispose();
-    _farmNameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -57,26 +48,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (_isLoading) return;
 
-    final fullName = _fullNameController.text.trim();
     final mobile = _mobileController.text.trim();
-    final email = _emailController.text.trim();
-    final farmName = _farmNameController.text.trim();
     final password = _passwordController.text;
 
     // Validate required fields.
-    if (fullName.isEmpty ||
-        mobile.isEmpty ||
-        email.isEmpty ||
-        password.isEmpty) {
+    if (mobile.isEmpty || password.isEmpty) {
       _showMessage('Please fill in all required fields.');
-      return;
-    }
-
-    // Basic email validation.
-    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-    if (!emailRegex.hasMatch(email)) {
-      _showMessage('Please enter a valid email address.');
       return;
     }
 
@@ -85,31 +62,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_accountType == 'Seller' && farmName.isEmpty) {
-      _showMessage('Please enter your farm or business name.');
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
       final auth = context.read<AuthProvider>();
 
+      // Pinapasa ang dummy placeholders para sa fullName at email
+      // para hindi mag-error ang required parameters sa AuthProvider
       final success = await auth.register(
-        fullName: fullName,
+        fullName: 'New User',
         mobile: mobile,
-        email: email,
+        email: 'user_${DateTime.now().millisecondsSinceEpoch}@placeholder.com',
         password: password,
-        accountType: _accountType,
-        farmName: _accountType == 'Seller' ? farmName : null,
+        accountType: 'Buyer',
       );
 
       if (!mounted) return;
 
       if (success) {
-        // Some Supabase projects require email confirmation.
-        // If confirmation is enabled, the user may need to verify
-        // their email before they can log in.
         final message = auth.infoMessage;
 
         _showMessage(
@@ -118,12 +88,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               : 'Account created successfully!',
         );
 
-        // Navigate based on the selected account type.
-        if (_accountType == 'Seller') {
-          _goToPage(const FarmerHome());
-        } else {
-          _goToPage(const HomeScreen());
-        }
+        _goToPage(const HomeScreen());
       } else {
         _showMessage(
           auth.errorMessage?.isNotEmpty == true
@@ -133,16 +98,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } catch (e, stackTrace) {
       if (!mounted) return;
-      _showMessage('REGISTRATION ERROR: $e');
+      _showMessage('Registration failed. Please try again: $e');
       debugPrint('Registration error: $e');
       debugPrint('Stack trace: $stackTrace');
-      if (!mounted) return;
-      _showMessage('Registration failed. Please try again: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _handleGoogleSignUp() async {
+    _showMessage('Google Sign-Up initiated...');
+  }
+
+  Future<void> _handleFacebookSignUp() async {
+    _showMessage('Facebook Sign-Up initiated...');
   }
 
   void _showMessage(String message) {
@@ -181,19 +152,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildAccountTypeToggle(),
-                    const SizedBox(height: 20),
-
-                    _buildFieldLabel('FULL NAME'),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _fullNameController,
-                      textCapitalization: TextCapitalization.words,
-                      style: const TextStyle(fontSize: 13, color: ink),
-                      decoration: _inputDecoration(hintText: 'Enter full name'),
-                    ),
-                    const SizedBox(height: 16),
-
                     _buildFieldLabel('MOBILE NUMBER'),
                     const SizedBox(height: 6),
                     TextField(
@@ -205,32 +163,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    _buildFieldLabel('EMAIL ADDRESS'),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: const TextStyle(fontSize: 13, color: ink),
-                      decoration: _inputDecoration(
-                        hintText: 'Enter email address',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_accountType == 'Seller') ...[
-                      _buildFieldLabel('FARM/BUSINESS NAME'),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _farmNameController,
-                        textCapitalization: TextCapitalization.words,
-                        style: const TextStyle(fontSize: 13, color: ink),
-                        decoration: _inputDecoration(
-                          hintText: 'Enter your farm or business name',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
 
                     _buildFieldLabel('PASSWORD'),
                     const SizedBox(height: 6),
@@ -299,6 +231,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
+                    // Submit Button
                     Container(
                       height: 48,
                       decoration: BoxDecoration(
@@ -340,6 +273,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    // Social Sign Up Divider
+                    Row(
+                      children: const [
+                        Expanded(child: Divider(color: Color(0xFFD6DDD8))),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR SIGN UP WITH',
+                            style: TextStyle(
+                              color: mutedText,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Color(0xFFD6DDD8))),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Google & Facebook Social Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildSocialButton(
+                            label: 'Google',
+                            icon: Icons.g_mobiledata_rounded,
+                            iconColor: Colors.redAccent,
+                            onTap: _handleGoogleSignUp,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildSocialButton(
+                            label: 'Facebook',
+                            icon: Icons.facebook,
+                            iconColor: const Color(0xFF1877F2),
+                            onTap: _handleFacebookSignUp,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -424,65 +402,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildAccountTypeToggle() {
+  Widget _buildSocialButton({
+    required String label,
+    required IconData icon,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
     return Container(
       height: 44,
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF2F0),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFF2F5F3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD6DDD8)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _accountType = 'Buyer'),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _accountType == 'Buyer'
-                      ? darkGreen
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Buyer',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: _accountType == 'Buyer'
-                        ? Colors.white
-                        : const Color(0xFF6B756E),
-                  ),
-                ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: ink,
               ),
             ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _accountType = 'Seller'),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _accountType == 'Seller'
-                      ? darkGreen
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Seller/Farmer',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: _accountType == 'Seller'
-                        ? Colors.white
-                        : const Color(0xFF6B756E),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
