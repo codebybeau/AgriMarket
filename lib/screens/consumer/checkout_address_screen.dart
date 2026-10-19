@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'checkout_delivery_screen.dart';
 
-class DeliveryAddScreen extends StatefulWidget {
+class CheckoutAddressScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
 
-  const DeliveryAddScreen({
+  const CheckoutAddressScreen({
     super.key,
     required this.checkoutItems,
   });
 
   @override
-  State<DeliveryAddScreen> createState() => _DeliveryAddScreenState();
+  State<CheckoutAddressScreen> createState() => _CheckoutAddressScreenState();
 }
 
-class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
+class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
   static const Color darkGreen = Color(0xFF105B31);
   static const Color pageBackground = Color(0xFFF7F9F7);
@@ -64,6 +65,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
           top: false,
           child: Column(
             children: [
+              // ================= HEADER =================
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -93,7 +95,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                           ),
                         ),
                         const Text(
-                          'Delivery Details',
+                          'Checkout',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -108,13 +110,13 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildStepItem(1, 'Address', true),
+                          _buildStepItem(1, 'Address', currentStep: 1),
                           _buildStepConnector(),
-                          _buildStepItem(2, 'Delivery', true),
+                          _buildStepItem(2, 'Delivery', currentStep: 1),
                           _buildStepConnector(),
-                          _buildStepItem(3, 'Payment', false),
+                          _buildStepItem(3, 'Payment', currentStep: 1),
                           _buildStepConnector(),
-                          _buildStepItem(4, 'Summary', false),
+                          _buildStepItem(4, 'Summary', currentStep: 1),
                         ],
                       ),
                     ),
@@ -122,14 +124,15 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                 ),
               ),
 
+              // ================= CONTENT =================
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           Icon(
                             Icons.location_on_outlined,
                             color: primaryGreen,
@@ -148,6 +151,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                       ),
                       const SizedBox(height: 12),
 
+                      // Default Address Card
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -192,9 +196,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                                   ),
                                   const Spacer(),
                                   InkWell(
-                                    onTap: () => _showMessage(
-                                      'Change address clicked',
-                                    ),
+                                    onTap: () => _showMessage('Change address clicked'),
                                     child: const Text(
                                       'Change',
                                       style: TextStyle(
@@ -230,8 +232,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           _selectedAddress['name'],
@@ -300,8 +301,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                           maxLines: 3,
                           style: const TextStyle(fontSize: 13, color: ink),
                           decoration: const InputDecoration(
-                            hintText:
-                                'e.g. Leave at the gate, call before delivery',
+                            hintText: 'e.g. Leave at the gate, call before delivery',
                             hintStyle: TextStyle(
                               color: Color(0xFFA0AEC0),
                               fontSize: 12,
@@ -316,6 +316,7 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                 ),
               ),
 
+              // ================= BOTTOM BUTTON =================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -333,8 +334,16 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      _showMessage('Delivery address saved!');
-                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CheckoutDeliveryScreen(
+                            checkoutItems: widget.checkoutItems,
+                            selectedAddress: _selectedAddress,
+                            deliveryNote: _notesController.text,
+                          ),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: darkGreen,
@@ -343,13 +352,24 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: const Text(
-                      'Confirm & Finish',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Continue',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -361,34 +381,39 @@ class _DeliveryAddScreenState extends State<DeliveryAddScreen> {
     );
   }
 
-  Widget _buildStepItem(int stepNumber, String title, bool isActive) {
+  Widget _buildStepItem(int stepNumber, String title, {required int currentStep}) {
+    final bool isDone = stepNumber < currentStep;
+    final bool isActive = stepNumber == currentStep;
+
     return Column(
       children: [
         Container(
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: isActive
+            color: isActive || isDone
                 ? Colors.white
                 : Colors.white.withValues(alpha: 0.3),
             shape: BoxShape.circle,
           ),
           child: Center(
-            child: Text(
-              '$stepNumber',
-              style: TextStyle(
-                color: isActive ? darkGreen : Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            child: isDone
+                ? const Icon(Icons.check, size: 14, color: darkGreen)
+                : Text(
+                    '$stepNumber',
+                    style: TextStyle(
+                      color: isActive ? darkGreen : Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           title,
           style: TextStyle(
-            color: isActive
+            color: isActive || isDone
                 ? Colors.white
                 : Colors.white.withValues(alpha: 0.6),
             fontSize: 9,

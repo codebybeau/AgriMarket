@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'delivery_add_screen.dart'; // Isama ang import na ito
+import 'checkout_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
@@ -70,23 +70,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
-  void _placeOrder() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Order placed successfully! Redirecting to Delivery details...'),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: darkGreen,
-          duration: Duration(seconds: 2),
-        ),
-      );
+  void _proceedToCheckoutSteps() {
+    if (_items.isEmpty) return;
 
-    // INAYOS: Lilipat na ito papuntang DeliveryAddScreen kapag klinick ang Place Order
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DeliveryAddScreen(
+        builder: (context) => CheckoutAddressScreen(
           checkoutItems: _items,
         ),
       ),
@@ -241,10 +231,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       const SizedBox(height: 16),
 
                       if (_items.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
                           child: Column(
-                            children: const [
+                            children: [
                               Icon(
                                 Icons.shopping_basket_outlined,
                                 size: 48,
@@ -542,7 +532,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _items.isEmpty ? null : _placeOrder,
+                          onPressed: _items.isEmpty ? null : _proceedToCheckoutSteps,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryGreen,
                             disabledBackgroundColor: Colors.grey.shade300,
@@ -552,7 +542,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ),
                           child: const Text(
-                            'Place Order',
+                            'Checkout',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
