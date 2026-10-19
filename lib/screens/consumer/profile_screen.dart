@@ -11,6 +11,7 @@ import 'categories_screen.dart';
 import 'orders_screen.dart';
 import 'notification_screen.dart';
 import 'cart_screen.dart';
+import '../farmer/farmer_home_screen.dart';
 
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
@@ -165,8 +166,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           isLoggedIn
                               ? (auth.role == 'farmer'
-                                    ? 'Farmer Account'
-                                    : 'Consumer Account')
+                                  ? 'Farmer Account'
+                                  : 'Consumer Account')
                               : 'Sign in or create an account',
                           style: const TextStyle(
                             color: Colors.white70,
@@ -333,10 +334,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildCardWrapper(
       child: Column(
         children: [
+          // TINANGGAL ANG "See More" / "See All"
           _buildSectionHeader(
             'Financial Services',
-            'See More',
-            () => _showMessage('Financial Services'),
+            '',
+            null,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -413,7 +415,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(child: SizedBox()),
+                // IDINAGDAG ANG SELLER DASHBOARD
+                Expanded(
+                  child: _buildGridItem(
+                    Icons.dashboard_rounded,
+                    'Seller Dashboard',
+                    'Sales & orders hub',
+                    primaryGreen,
+                    onTap: () {
+                      final auth = context.read<AuthProvider>();
+                      if (auth.isLoggedIn && auth.isFarmer) {
+                        _goToPage(const FarmerHome());
+                      } else {
+                        _showMessage('Seller Dashboard');
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -441,7 +459,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.help_outline, color: mutedText),
             title: const Text(
-              'Help Centre',
+              'Help Center',
               style: TextStyle(fontSize: 13, color: ink),
             ),
             trailing: const Icon(
@@ -598,9 +616,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String subtitle,
     Color iconColor, {
     bool isSubtitleHighlight = false,
+    VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: () => _showMessage(title),
+      onTap: onTap ?? () => _showMessage(title),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(10),
