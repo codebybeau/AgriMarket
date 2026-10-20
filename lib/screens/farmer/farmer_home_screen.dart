@@ -35,7 +35,12 @@ class _FarmerHomeState extends State<FarmerHome> {
         elevation: 0,
         title: Row(
           children: [
-            const Icon(Icons.eco, color: agriGreen, size: 28),
+            Image.asset(
+              'assets/images/logo.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+            ),
             const SizedBox(width: 8),
             const Text(
               'AgriMart',
@@ -572,11 +577,11 @@ class _FarmerHomeState extends State<FarmerHome> {
   }
 
   void _addProduct() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const AddNewProductScreen()),
-  );
-}
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddNewProductScreen()),
+    );
+  }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
