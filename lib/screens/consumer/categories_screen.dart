@@ -578,7 +578,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // --- FLOATING BOTTOM NAVIGATION (Matched exactly to HomeScreen) ---
+  // --- FLOATING BOTTOM NAVIGATION 
   Widget _buildBottomNavigation() {
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),

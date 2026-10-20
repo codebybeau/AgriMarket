@@ -364,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white.withValues(alpha: 0.15),
+          color: Colors.white..withValues(alpha: 0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -418,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 errorBuilder: (_, _, _) =>
                     Container(color: const Color(0xFF2B8A4A)),
               ),
-              Container(color: primaryGreen.withValues(alpha: 0.75)),
+              Container(color: primaryGreen..withValues(alpha: 0.18)),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
