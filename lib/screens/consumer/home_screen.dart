@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
 import 'product_details_screen.dart';
+import 'farm_details_screen.dart';
 
 class NoStretchScrollBehavior extends MaterialScrollBehavior {
   const NoStretchScrollBehavior();
@@ -42,6 +44,35 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Banner Auto-Scroll Variables
+  late final PageController _bannerPageController;
+  int _currentBannerIndex = 0;
+  Timer? _bannerTimer;
+
+  final List<Map<String, dynamic>> _saleBanners = [
+    {
+      'title': '🌾 Harvest Season Sale',
+      'subtitle': 'Up to 30% off fresh produce',
+      'buttonText': 'Shop Now',
+      'image':
+          'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200',
+    },
+    {
+      'title': '🌽 Direct From Farmers',
+      'subtitle': '100% fresh from local farms',
+      'buttonText': 'Explore',
+      'image':
+          'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200',
+    },
+    {
+      'title': '📦 Wholesale & Bulk Deals',
+      'subtitle': 'Special rates for bulk orders',
+      'buttonText': 'View Deals',
+      'image':
+          'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1200',
+    },
+  ];
+
   final List<Map<String, dynamic>> _categories = [
     {
       'name': 'Vegetables',
@@ -68,8 +99,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Map<String, dynamic>> _featuredStores = [
     {
       'name': 'Mang Celso Farm',
-      'location': 'Benguet',
+      'location': 'Benguet, CAR',
       'rating': '4.8',
+      'reviews': '892',
       'image':
           'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600',
       'avatar':
@@ -78,8 +110,9 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'name': 'Guimaras Harvest',
-      'location': 'Guimaras',
+      'location': 'Guimaras, Visayas',
       'rating': '4.9',
+      'reviews': '512',
       'image':
           'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=600',
       'avatar':
@@ -88,8 +121,9 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'name': 'Nueva Ecija Grains',
-      'location': 'Nueva Ecija',
+      'location': 'Nueva Ecija, Central Luzon',
       'rating': '4.6',
+      'reviews': '340',
       'image':
           'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
       'avatar':
@@ -105,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'unit': '/kg',
       'harvestDate': 'Harvested May 27, 2025',
       'farm': 'Mang Celso Farm',
+      'location': 'Benguet, CAR',
       'image':
           'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=600',
     },
@@ -114,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'unit': '/bundle',
       'harvestDate': 'Harvested May 28, 2025',
       'farm': 'Pangasinan Greens',
+      'location': 'Pangasinan',
       'image':
           'https://images.unsplash.com/photo-1515471209610-dae1c92d877f?w=600',
     },
@@ -123,6 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'unit': '/kg',
       'harvestDate': 'Harvested May 26, 2025',
       'farm': 'Guimaras Harvest',
+      'location': 'Guimaras',
       'image':
           'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
     },
@@ -134,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'location': 'Kidapawan City',
       'distance': '2.4 km',
       'rating': '4.9',
+      'reviews': '142',
       'products': '18 products',
     },
     {
@@ -141,6 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
       'location': 'Kabacan',
       'distance': '8.7 km',
       'rating': '4.7',
+      'reviews': '98',
       'products': '12 products',
     },
   ];
@@ -186,7 +225,29 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _bannerPageController = PageController();
+    _startBannerAutoScroll();
+  }
+
+  void _startBannerAutoScroll() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_bannerPageController.hasClients) {
+        final nextIndex = (_currentBannerIndex + 1) % _saleBanners.length;
+        _bannerPageController.animateToPage(
+          nextIndex,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -198,6 +259,31 @@ class _HomeScreenState extends State<HomeScreen> {
         pageBuilder: (_, _, _) => page,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  void _openFarmDetails({
+    required String farmName,
+    required String location,
+    String rating = '4.8',
+    String reviewCount = '892',
+    String? avatarUrl,
+    String? bannerUrl,
+  }) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FarmDetailsScreen(
+          farmName: farmName,
+          location: location,
+          rating: rating,
+          reviewCount: reviewCount,
+          avatarUrl: avatarUrl ??
+              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          bannerUrl: bannerUrl ??
+              'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600',
+        ),
       ),
     );
   }
@@ -402,7 +488,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- SALE BANNER ---
+  // --- AUTOMATIC HORIZONTAL SALE BANNER CAROUSEL ---
   Widget _buildSaleBanner() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -411,91 +497,100 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SizedBox(
           height: 120,
           child: Stack(
-            fit: StackFit.expand,
             children: [
-              Image.network(
-                'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    Container(color: const Color(0xFF2B8A4A)),
-              ),
-              Container(color: primaryGreen.withValues(alpha: 0.18)),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      '🌾 Harvest Season Sale',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Up to 30% off fresh produce',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () => _goToPage(const MarketplaceScreen()),
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: darkGreen,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: const StadiumBorder(),
-                      ),
-                      child: const Text(
-                        'Shop Now',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
+              // PageView Builder for Horizontal Scrolling
+              PageView.builder(
+                controller: _bannerPageController,
+                onPageChanged: (index) {
+                  setState(() => _currentBannerIndex = index);
+                },
+                itemCount: _saleBanners.length,
+                itemBuilder: (context, index) {
+                  final banner = _saleBanners[index];
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        banner['image'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          color: const Color(0xFF2B8A4A),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      Container(color: primaryGreen.withValues(alpha: 0.22)),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              banner['title'],
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              banner['subtitle'],
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () =>
+                                  _goToPage(const MarketplaceScreen()),
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: darkGreen,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: const StadiumBorder(),
+                              ),
+                              child: Text(
+                                banner['buttonText'],
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
+
+              // Animated Indicator Dots Overlay
               Positioned(
                 right: 16,
                 bottom: 12,
                 child: Row(
-                  children: [
-                    Container(
-                      width: 16,
+                  children: List.generate(
+                    _saleBanners.length,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.only(left: 4),
+                      width: _currentBannerIndex == index ? 16 : 5,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: _currentBannerIndex == index
+                            ? Colors.white
+                            : Colors.white54,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: const BoxDecoration(
-                        color: Colors.white54,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: const BoxDecoration(
-                        color: Colors.white54,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -628,123 +723,134 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE8ECE8)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(15),
-                          ),
-                          child: Image.network(
-                            store['image'],
-                            height: 60,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              color: const Color(0xFFE8F0E7),
-                              child: const Icon(Icons.store,
-                                  color: primaryGreen, size: 24),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: -16,
-                          left: 12,
-                          child: Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 16,
-                                  backgroundImage: NetworkImage(
-                                    store['avatar'],
-                                  ),
-                                ),
-                              ),
-                              if (store['verified'])
-                                const Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Icon(
-                                    Icons.check_circle,
-                                    color: Color(0xFF2DB05F),
-                                    size: 12,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: InkWell(
+                  onTap: () => _openFarmDetails(
+                    farmName: store['name'],
+                    location: store['location'],
+                    rating: store['rating'],
+                    reviewCount: store['reviews'] ?? '892',
+                    avatarUrl: store['avatar'],
+                    bannerUrl: store['image'],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
                         children: [
-                          Text(
-                            store['name'],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: ink,
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(15),
+                            ),
+                            child: Image.network(
+                              store['image'],
+                              height: 60,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                color: const Color(0xFFE8F0E7),
+                                child: const Icon(Icons.store,
+                                    color: primaryGreen, size: 24),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                color: Color(0xFFFFB300),
-                                size: 12,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                store['rating'],
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  color: mutedText,
+                          Positioned(
+                            bottom: -16,
+                            left: 12,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 16,
+                                    backgroundImage: NetworkImage(
+                                      store['avatar'],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                                if (store['verified'])
+                                  const Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Icon(
+                                      Icons.check_circle,
+                                      color: Color(0xFF2DB05F),
+                                      size: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.location_on_outlined,
-                                color: mutedText,
-                                size: 10,
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              store['name'],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: ink,
                               ),
-                              const SizedBox(width: 2),
-                              Expanded(
-                                child: Text(
-                                  store['location'],
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: Color(0xFFFFB300),
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  store['rating'],
                                   style: const TextStyle(
                                     fontSize: 9,
                                     color: mutedText,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  color: mutedText,
+                                  size: 10,
+                                ),
+                                const SizedBox(width: 2),
+                                Expanded(
+                                  child: Text(
+                                    store['location'],
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: mutedText,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -837,128 +943,150 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE8ECE8)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(15),
-                          ),
-                          child: Image.network(
-                            product['image'],
-                            height: 90,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              color: const Color(0xFFE8F0E7),
-                              child: const Icon(Icons.eco,
-                                  color: primaryGreen, size: 28),
-                            ),
-                          ),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ProductDetailsScreen(
+                          title: product['name'],
+                          price: (product['price'] as num).toDouble(),
+                          unit: (product['unit'] as String).replaceAll('/', ''),
+                          imageUrl: product['image'],
                         ),
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: primaryGreen,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.eco_outlined,
-                                  color: Colors.white,
-                                  size: 10,
-                                ),
-                                SizedBox(width: 2),
-                                Text(
-                                  'Fresh',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Stack(
                         children: [
-                          Text(
-                            product['name'],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: ink,
+                          ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(15),
+                            ),
+                            child: Image.network(
+                              product['image'],
+                              height: 90,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                color: const Color(0xFFE8F0E7),
+                                child: const Icon(Icons.eco,
+                                    color: primaryGreen, size: 28),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          RichText(
-                            text: TextSpan(
-                              children: [
-                                const TextSpan(
-                                  text: '₱',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: darkGreen,
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: primaryGreen,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.eco_outlined,
+                                    color: Colors.white,
+                                    size: 10,
                                   ),
-                                ),
-                                TextSpan(
-                                  text: '${(product['price'] as num).toInt()}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: darkGreen,
+                                  SizedBox(width: 2),
+                                  Text(
+                                    'Fresh',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                                TextSpan(
-                                  text: product['unit'],
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    color: mutedText,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            product['harvestDate'],
-                            style: const TextStyle(
-                              fontSize: 8,
-                              color: mutedText,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            product['farm'],
-                            style: const TextStyle(
-                              fontSize: 8,
-                              color: mutedText,
-                              fontWeight: FontWeight.w500,
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product['name'],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text: '₱',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: darkGreen,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${(product['price'] as num).toInt()}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: darkGreen,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: product['unit'],
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: mutedText,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              product['harvestDate'],
+                              style: const TextStyle(
+                                fontSize: 8,
+                                color: mutedText,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            GestureDetector(
+                              onTap: () => _openFarmDetails(
+                                farmName: product['farm'],
+                                location: product['location'] ?? 'Philippines',
+                              ),
+                              child: Text(
+                                product['farm'],
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  color: primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -1016,97 +1144,108 @@ class _HomeScreenState extends State<HomeScreen> {
               final farmer = _nearbyFarmers[index];
               return Container(
                 width: 180,
-                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE8ECE8)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: InkWell(
+                  onTap: () => _openFarmDetails(
+                    farmName: farmer['name'],
+                    location: farmer['location'],
+                    rating: farmer['rating'],
+                    reviewCount: farmer['reviews'] ?? '142',
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.near_me_outlined,
-                            color: primaryGreen,
-                            size: 14,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F3F1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            farmer['distance'],
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: ink,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.near_me_outlined,
+                                color: primaryGreen,
+                                size: 14,
+                              ),
                             ),
-                          ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F3F1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                farmer['distance'],
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: ink,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      farmer['name'],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          color: mutedText,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 2),
+                        const Spacer(),
                         Text(
-                          farmer['location'],
+                          farmer['name'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 9, color: mutedText),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '${farmer['rating']} ★',
-                          style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: primaryGreen,
+                            color: ink,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '• ${farmer['products']}',
-                          style: const TextStyle(
-                              fontSize: 9, color: mutedText),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on_outlined,
+                              color: mutedText,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              farmer['location'],
+                              style: const TextStyle(
+                                  fontSize: 9, color: mutedText),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              '${farmer['rating']} ★',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: primaryGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '• ${farmer['products']}',
+                              style: const TextStyle(
+                                  fontSize: 9, color: mutedText),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -1260,11 +1399,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    product['farm'],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 8, color: mutedText),
+                  GestureDetector(
+                    onTap: () => _openFarmDetails(
+                      farmName: product['farm'],
+                      location: 'Philippines',
+                    ),
+                    child: Text(
+                      product['farm'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: primaryGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Row(
