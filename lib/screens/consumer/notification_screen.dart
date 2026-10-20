@@ -17,7 +17,6 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
-  static const Color darkGreen = Color(0xFF105B31);
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color unreadBg = Color(0xFFEEF9F1);
   static const Color ink = Color(0xFF17211B);
@@ -220,7 +219,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -432,7 +431,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

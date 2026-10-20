@@ -279,7 +279,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white.withOpacity(0.18),
+          color: Colors.white..withValues(alpha: 0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -397,7 +397,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         border: Border.all(color: const Color(0xFFE8ECE8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black..withValues(alpha: 0.18),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -671,7 +671,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),

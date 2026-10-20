@@ -409,7 +409,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white.withOpacity(0.18),
+          color: Colors.white.withValues(alpha: 0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -519,7 +519,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         border: Border.all(color: const Color(0xFFE8ECE8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -575,7 +575,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // --- FLOATING BOTTOM NAVIGATION (Matched exactly to HomeScreen) ---
+  // --- FLOATING BOTTOM NAVIGATION 
   Widget _buildBottomNavigation() {
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
@@ -585,7 +585,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
