@@ -474,7 +474,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isWholesaleActive
-              ? primaryGreen.withOpacity(0.1)
+              ? primaryGreen.withValues(alpha: 0.1)
               : inputFillColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
@@ -509,7 +509,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isOrganic ? primaryGreen.withOpacity(0.1) : inputFillColor,
+          color: isOrganic
+              ? primaryGreen.withValues(alpha: 0.1)
+              : inputFillColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isOrganic ? primaryGreen : borderColor),
         ),
