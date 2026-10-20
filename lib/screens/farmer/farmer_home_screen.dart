@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
+import 'add_product_screen.dart';
 
 const Color agriGreen = Color(0xFF2E7D32);
 const Color agriDarkGreen = Color(0xFF1B5E20);
@@ -571,8 +572,11 @@ class _FarmerHomeState extends State<FarmerHome> {
   }
 
   void _addProduct() {
-    _showMessage('Add Product will be connected to your product form next.');
-  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => const AddNewProductScreen()),
+  );
+}
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
