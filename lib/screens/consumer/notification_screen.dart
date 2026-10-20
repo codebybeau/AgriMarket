@@ -17,7 +17,6 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
-  static const Color darkGreen = Color(0xFF105B31);
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color unreadBg = Color(0xFFEEF9F1);
   static const Color ink = Color(0xFF17211B);
@@ -118,11 +117,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: primaryGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor:
+            Colors.transparent, // Required for floating bar effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true, // Required for floating bar effect
         body: Column(
           children: [
             _buildHeader(),
@@ -140,16 +141,15 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       (n) => _buildNotificationItem(n),
                     ),
                   ],
-                  const SizedBox(height: 80), // Padding for floating nav bar
+                  const SizedBox(
+                    height: 110,
+                  ), // Padding to avoid floating nav bar overlap
                 ],
               ),
             ),
           ],
         ),
-        // Use the exact custom floating bottom nav bar from your Home screen
         bottomNavigationBar: _buildBottomNavigation(),
-        extendBody:
-            true, // Allows content to scroll behind the floating nav bar
       ),
     );
   }
@@ -418,152 +418,129 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   // ==============================================
-  // BOTTOM NAV (Matches HomeScreen)
+  // FLOATING BOTTOM NAV (Matches HomeScreen)
   // ==============================================
 
   Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
+          // Notifications Tab Active
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
+              true,
+              () {}, // Current page
+              badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
-              false,
-              () => _goToPage(const HomeScreen()),
-            ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              false,
-              () => _goToPage(const CategoriesScreen()),
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            // THIS ITEM IS NOW ACTIVE
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                true, // Active state true
-                () {}, // Already here
-                badge: provider.unreadCount,
-              ),
-            ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              false,
-              () => _goToPage(const ProfileScreen()),
-            ),
-          ],
-        ),
+          ),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
+        ],
       ),
     );
   }
 
   Widget _navItem(
     IconData icon,
-    IconData activeIcon,
     String label,
     bool selected,
     VoidCallback onTap, {
     int badge = 0,
   }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  if (selected)
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F0E7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(activeIcon, size: 19, color: darkGreen),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        icon,
-                        size: 19,
-                        color: const Color(0xFF9AA39B),
-                      ),
-                    ),
-                  if (badge > 0)
-                    Positioned(
-                      right: -3,
-                      top: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF3D4F),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: selected ? darkGreen : const Color(0xFF929B94),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFE8F5E9)
+              : Colors.transparent, // Light green pill for active state
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
                 ),
+                if (badge > 0)
+                  Positioned(
+                    right: -4,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF3D4F),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                color: selected ? primaryGreen : const Color(0xFF929B94),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
