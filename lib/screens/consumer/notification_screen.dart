@@ -17,7 +17,6 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
-  static const Color darkGreen = Color(0xFF105B31);
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color unreadBg = Color(0xFFEEF9F1);
   static const Color ink = Color(0xFF17211B);
@@ -32,8 +31,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'alert',
       'title': 'Fresh Harvest Alert',
-      'message':
-          'Mang Celso Farm listed freshly harvested ampalaya for the Kidapawan service area. Sample alert only.',
+      'message': 'Mang Celso Farm listed freshly harvested ampalaya for the Kidapawan service area. Sample alert only.',
       'time': '10 min ago',
       'isRead': false,
     },
@@ -42,8 +40,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'order',
       'title': 'Order Confirmed',
-      'message':
-          'Your order #ORD-2024-001 has been confirmed by the seller. Mang Celso Farm is preparing your items.',
+      'message': 'Your order #ORD-2024-001 has been confirmed by the seller. Mang Celso Farm is preparing your items.',
       'time': '30 min ago',
       'isRead': false,
     },
@@ -52,8 +49,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'order',
       'title': 'Order Shipped',
-      'message':
-          'Your order #ORD-2024-001 is on its way! Expected delivery: Nov 25. Tracking: AGM-2024-1234.',
+      'message': 'Your order #ORD-2024-001 is on its way! Expected delivery: Nov 25. Tracking: AGM-2024-1234.',
       'time': '2 hours ago',
       'isRead': false,
     },
@@ -62,8 +58,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'promo',
       'title': '🎊 Harvest Season Sale!',
-      'message':
-          'Get up to 30% off on all fresh vegetables and fruits this weekend only. Sample promotional content.',
+      'message': 'Get up to 30% off on all fresh vegetables and fruits this weekend only. Sample promotional content.',
       'time': '5 hours ago',
       'isRead': false,
     },
@@ -72,8 +67,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': false,
       'type': 'order_muted',
       'title': 'Order Delivered',
-      'message':
-          'Your order #ORD-2024-002 has been delivered successfully. Enjoy your Carabao Mangoes! Please rate the seller.',
+      'message': 'Your order #ORD-2024-002 has been delivered successfully. Enjoy your Carabao Mangoes! Please rate the seller.',
       'time': '1 day ago',
       'isRead': true,
     },
@@ -82,8 +76,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': false,
       'type': 'alert_muted',
       'title': 'Product Update',
-      'message':
-          'New features have been added to your AgriMart experience. Tap here to learn more about the latest updates.',
+      'message': 'New features have been added to your AgriMart experience. Tap here to learn more about the latest updates.',
       'time': '2 days ago',
       'isRead': true,
     },
@@ -113,16 +106,19 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     // Filter lists based on sections
-    final newNotifications =
-        _notifications.where((n) => n['isNew'] == true).toList();
-    final earlierNotifications =
-        _notifications.where((n) => n['isNew'] == false).toList();
+    final newNotifications = _notifications
+        .where((n) => n['isNew'] == true)
+        .toList();
+    final earlierNotifications = _notifications
+        .where((n) => n['isNew'] == false)
+        .toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: primaryGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent, // Required for floating bar effect
+        systemNavigationBarColor:
+            Colors.transparent, // Required for floating bar effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
@@ -145,7 +141,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       (n) => _buildNotificationItem(n),
                     ),
                   ],
-                  const SizedBox(height: 110), // Padding to avoid floating nav bar overlap
+                  const SizedBox(
+                    height: 110,
+                  ), // Padding to avoid floating nav bar overlap
                 ],
               ),
             ),
@@ -220,7 +218,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Row(
@@ -432,7 +430,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -441,9 +439,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
-          _navItem(Icons.grid_view_rounded, 'Categories', false, () => _goToPage(const CategoriesScreen())),
-          _navItem(Icons.storefront_outlined, 'Marketplace', false, () => _goToPage(const MarketplaceScreen())),
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
           // Notifications Tab Active
           Consumer<NotificationProvider>(
             builder: (context, provider, _) => _navItem(
@@ -454,13 +467,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
               badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
           ),
-          _navItem(Icons.person_outline_rounded, 'Me', false, () => _goToPage(const ProfileScreen())),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    int badge = 0,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -468,7 +492,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          color: selected
+              ? const Color(0xFFE8F5E9)
+              : Colors.transparent, // Light green pill for active state
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
