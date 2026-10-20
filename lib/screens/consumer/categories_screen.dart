@@ -73,8 +73,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         {
           'name': 'Legumes & Beans',
-          'image':
-              'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=300',
+          'image': 'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=300',
         },
         {
           'name': 'Processed Foods',
@@ -188,8 +187,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         {
           'name': 'Sprinkler Systems',
-          'image':
-              'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=300',
+          'image': 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=300',
         },
       ],
     },
@@ -256,13 +254,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: Colors.transparent, // Changed to transparent for floating effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true, // REQUIRED for floating bottom navigation
         body: SafeArea(
           top: false,
+          bottom: false,
           child: Column(
             children: [
               _buildHeader(),
@@ -276,7 +276,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                        // Increased bottom padding to 110 to avoid overlap with floating bar
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
                         itemCount: filteredSections.length,
                         itemBuilder: (context, sectionIndex) {
                           final section = filteredSections[sectionIndex];
@@ -294,11 +295,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 itemCount: items.length,
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 3,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                      mainAxisExtent: 130,
-                                    ),
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                  mainAxisExtent: 130,
+                                ),
                                 itemBuilder: (context, itemIndex) {
                                   return _buildCategoryCard(items[itemIndex]);
                                 },
@@ -408,7 +409,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withOpacity(0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -518,7 +519,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         border: Border.all(color: const Color(0xFFE8ECE8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withOpacity(0.02),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -574,135 +575,98 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  // --- FLOATING BOTTOM NAVIGATION (Matched exactly to HomeScreen) ---
   Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
+          _navItem(Icons.grid_view_rounded, 'Categories', true, () {}), // Currently Active tab
+          _navItem(Icons.storefront_outlined, 'Marketplace', false, () => _goToPage(const MarketplaceScreen())),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
               false,
-              () => _goToPage(const HomeScreen()),
+              () => _goToPage(const NotificationScreen()),
+              badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              true,
-              () {},
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                false,
-                () => _goToPage(const NotificationScreen()),
-                badge: provider.unreadCount,
-              ),
-            ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              false,
-              () => _goToPage(const ProfileScreen()),
-            ),
-          ],
-        ),
+          ),
+          _navItem(Icons.person_outline_rounded, 'Me', false, () => _goToPage(const ProfileScreen())),
+        ],
       ),
     );
   }
 
-  Widget _navItem(
-    IconData icon,
-    IconData activeIcon,
-    String label,
-    bool selected,
-    VoidCallback onTap, {
-    int badge = 0,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    selected ? activeIcon : icon,
-                    size: 19,
-                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
-                  ),
-                  if (badge > 0)
-                    Positioned(
-                      right: -7,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 13,
-                          minHeight: 13,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF3D4F),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                ),
+                if (badge > 0)
+                  Positioned(
+                    right: -4,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF3D4F),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
                         ),
                       ),
                     ),
-                ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                color: selected ? primaryGreen : const Color(0xFF929B94),
               ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: selected ? primaryGreen : const Color(0xFF929B94),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

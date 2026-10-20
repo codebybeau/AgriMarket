@@ -60,13 +60,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: Colors.transparent, // Required for floating bar effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true, // Required for floating bar effect
         body: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 20),
           child: Column(
             children: [
               _buildProfileHeader(),
@@ -75,6 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildFinancialServices(),
               _buildMoreActivities(),
               _buildSupportSection(),
+              const SizedBox(height: 100), // Padding to prevent bottom floating bar overlap
             ],
           ),
         ),
@@ -334,7 +335,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildCardWrapper(
       child: Column(
         children: [
-          // TINANGGAL ANG "See More" / "See All"
           _buildSectionHeader(
             'Financial Services',
             '',
@@ -415,7 +415,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // IDINAGDAG ANG SELLER DASHBOARD
                 Expanded(
                   child: _buildGridItem(
                     Icons.dashboard_rounded,
@@ -676,7 +675,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.white.withOpacity(0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -716,138 +715,101 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ==========================================
-  // FLOATING BOTTOM NAVIGATION BAR
+  // FLOATING BOTTOM NAVIGATION BAR (Matches HomeScreen)
   // ==========================================
 
   Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
+    return Container(
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
+          _navItem(Icons.grid_view_rounded, 'Categories', false, () => _goToPage(const CategoriesScreen())),
+          _navItem(Icons.storefront_outlined, 'Marketplace', false, () => _goToPage(const MarketplaceScreen())),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
               false,
-              () => _goToPage(const HomeScreen()),
+              () => _goToPage(const NotificationScreen()),
+              badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              false,
-              () => _goToPage(const CategoriesScreen()),
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                false,
-                () => _goToPage(const NotificationScreen()),
-                badge: provider.unreadCount,
-              ),
-            ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              true,
-              () {},
-            ),
-          ],
-        ),
+          ),
+          // Profile/Me Tab Active
+          _navItem(Icons.person_outline_rounded, 'Me', true, () {}),
+        ],
       ),
     );
   }
 
-  Widget _navItem(
-    IconData icon,
-    IconData activeIcon,
-    String label,
-    bool selected,
-    VoidCallback onTap, {
-    int badge = 0,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    selected ? activeIcon : icon,
-                    size: 19,
-                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
-                  ),
-                  if (badge > 0)
-                    Positioned(
-                      right: -7,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 13,
-                          minHeight: 13,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF3D4F),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                ),
+                if (badge > 0)
+                  Positioned(
+                    right: -4,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF3D4F),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
                         ),
                       ),
                     ),
-                ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                color: selected ? primaryGreen : const Color(0xFF929B94),
               ),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: selected ? primaryGreen : const Color(0xFF929B94),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
