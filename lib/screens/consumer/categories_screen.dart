@@ -6,6 +6,7 @@ import '../../providers/notification_provider.dart';
 import 'home_screen.dart';
 import 'marketplace_screen.dart';
 import 'notification_screen.dart';
+import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 
@@ -41,35 +42,43 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'items': [
         {
           'name': 'Vegetables',
-          'image': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=300',
         },
         {
           'name': 'Fruits',
-          'image': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=300',
         },
         {
           'name': 'Meat & Poultry',
-          'image': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=300',
         },
         {
           'name': 'Fish & Seafood',
-          'image': 'https://images.unsplash.com/photo-1510130387422-82bed34b37e9?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1510130387422-82bed34b37e9?w=300',
         },
         {
           'name': 'Rice & Grains',
-          'image': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300',
         },
         {
           'name': 'Eggs & Dairy',
-          'image': 'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=300',
         },
         {
           'name': 'Herbs & Spices',
-          'image': 'https://images.unsplash.com/photo-1506806732259-39c2d0268443?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1506806732259-39c2d0268443?w=300',
         },
         {
           'name': 'Root Crops',
-          'image': 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300',
         },
         {
           'name': 'Legumes & Beans',
@@ -78,23 +87,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         {
           'name': 'Processed Foods',
-          'image': 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=300',
         },
         {
           'name': 'Beverages',
-          'image': 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300',
         },
         {
           'name': 'Nuts & Seeds',
-          'image': 'https://images.unsplash.com/photo-1508061252966-177bf504351a?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1508061252966-177bf504351a?w=300',
         },
         {
           'name': 'Flowers & Ornamentals',
-          'image': 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=300',
         },
         {
           'name': 'Honey & Natural',
-          'image': 'https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1587049352847-4a222e784d38?w=300',
         },
       ],
     },
@@ -104,43 +118,53 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'items': [
         {
           'name': 'Seeds & Seedlings',
-          'image': 'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?w=300',
         },
         {
           'name': 'Fertilizers',
-          'image': 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=300',
         },
         {
           'name': 'Soil Amendments',
-          'image': 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300',
         },
         {
           'name': 'Pesticides',
-          'image': 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300',
         },
         {
           'name': 'Herbicides',
-          'image': 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=300',
         },
         {
           'name': 'Fungicides',
-          'image': 'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?w=300',
         },
         {
           'name': 'Organic Farming',
-          'image': 'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=300',
         },
         {
           'name': 'Soil & Growing Media',
-          'image': 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=300',
         },
         {
           'name': 'Pots & Containers',
-          'image': 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=300',
         },
         {
           'name': 'Seedling Trays',
-          'image': 'https://images.unsplash.com/photo-1592417817098-8f3d6ef23a81?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1592417817098-8f3d6ef23a81?w=300',
         },
       ],
     },
@@ -150,27 +174,33 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'items': [
         {
           'name': 'Hand Tools',
-          'image': 'https://images.unsplash.com/photo-1617575521317-8686d1f03f39?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1617575521317-8686d1f03f39?w=300',
         },
         {
           'name': 'Power Tools',
-          'image': 'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1504148455328-c376907d081c?w=300',
         },
         {
           'name': 'Tractors & Vehicles',
-          'image': 'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=300',
         },
         {
           'name': 'Plowing Equipment',
-          'image': 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=300',
         },
         {
           'name': 'Harvesting Equipment',
-          'image': 'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?w=300',
         },
         {
           'name': 'Sprayers',
-          'image': 'https://images.unsplash.com/photo-1563514227147-6d2ff665a6a0?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1563514227147-6d2ff665a6a0?w=300',
         },
       ],
     },
@@ -180,11 +210,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       'items': [
         {
           'name': 'Water Pumps',
-          'image': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300',
         },
         {
           'name': 'Irrigation Pipes',
-          'image': 'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=300',
         },
         {
           'name': 'Sprinkler Systems',
@@ -230,23 +262,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     final filteredSections = _categorySections
         .map((section) {
-          final matchesGroup =
-              _selectedFilter == 'All' ||
+          final matchesGroup = _selectedFilter == 'All' ||
               section['group'] == _selectedFilter ||
               section['title'].toString().contains(_selectedFilter);
 
-          final List<Map<String, String>> matchingItems =
-              (section['items'] as List<Map<String, String>>).where((item) {
-                final nameMatch =
-                    query.isEmpty ||
-                    item['name']!.toLowerCase().contains(query);
-                return nameMatch;
-              }).toList();
+          final rawItems =
+              (section['items'] as List).cast<Map<String, dynamic>>();
+          final matchingItems = rawItems.where((item) {
+            final nameMatch = query.isEmpty ||
+                item['name'].toString().toLowerCase().contains(query);
+            return nameMatch;
+          }).toList();
 
           return {
             'title': section['title'],
             'group': section['group'],
-            'items': matchesGroup ? matchingItems : <Map<String, String>>[],
+            'items': matchesGroup ? matchingItems : <Map<String, dynamic>>[],
           };
         })
         .where((section) => (section['items'] as List).isNotEmpty)
@@ -256,13 +287,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor:
-            Colors.transparent, // Changed to transparent for floating effect
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
-        extendBody: true, // REQUIRED for floating bottom navigation
+        extendBody: true,
         body: SafeArea(
           top: false,
           bottom: false,
@@ -279,13 +309,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         ),
                       )
                     : ListView.builder(
-                        // Increased bottom padding to 110 to avoid overlap with floating bar
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
                         itemCount: filteredSections.length,
                         itemBuilder: (context, sectionIndex) {
                           final section = filteredSections[sectionIndex];
-                          final items =
-                              section['items'] as List<Map<String, String>>;
+                          final items = (section['items'] as List)
+                              .cast<Map<String, dynamic>>();
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,11 +327,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 itemCount: items.length,
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 3,
-                                      crossAxisSpacing: 10,
-                                      mainAxisSpacing: 10,
-                                      mainAxisExtent: 130,
-                                    ),
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                  mainAxisExtent: 130,
+                                ),
                                 itemBuilder: (context, itemIndex) {
                                   return _buildCategoryCard(items[itemIndex]);
                                 },
@@ -321,6 +350,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  // --- HEADER ---
   Widget _buildHeader() {
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -351,8 +381,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               Consumer<NotificationProvider>(
                 builder: (context, provider, _) => _headerAction(
                   Icons.chat_bubble_outline_rounded,
-                  onTap: () => _goToPage(const NotificationScreen()),
-                  badge: provider.unreadCount,
+                  onTap: () => _goToPage(const MessagesScreen()),
+                  badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
                 ),
               ),
               const SizedBox(width: 8),
@@ -418,16 +448,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: SizedBox(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               child: Icon(icon, color: Colors.white, size: 19),
             ),
           ),
         ),
         if (badge > 0)
           Positioned(
-            right: -3,
-            top: -4,
+            right: -2,
+            top: -2,
             child: Container(
               padding: const EdgeInsets.all(3),
               constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
@@ -451,6 +481,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
+  // --- FILTER CHIPS ---
   Widget _buildFilterChips() {
     return SizedBox(
       height: 48,
@@ -514,7 +545,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  Widget _buildCategoryCard(Map<String, String> item) {
+  Widget _buildCategoryCard(Map<String, dynamic> item) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -578,11 +609,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // --- FLOATING BOTTOM NAVIGATION 
+  // --- FLOATING BOTTOM NAVIGATION ---
   Widget _buildBottomNavigation() {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
@@ -595,7 +626,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _navItem(
             Icons.home_filled,
@@ -608,7 +638,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             'Categories',
             true,
             () {},
-          ), // Currently Active tab
+          ),
           _navItem(
             Icons.storefront_outlined,
             'Marketplace',
@@ -642,62 +672,64 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     VoidCallback onTap, {
     int badge = 0,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE8F5E9)
-              : Colors.transparent, // Light green pill for active state
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
-                ),
-                if (badge > 0)
-                  Positioned(
-                    right: -4,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF3D4F),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$badge',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      right: -4,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF3D4F),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                color: selected ? primaryGreen : const Color(0xFF929B94),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                  color: selected ? primaryGreen : const Color(0xFF929B94),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

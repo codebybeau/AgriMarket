@@ -9,6 +9,7 @@ import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
+import 'product_details_screen.dart';
 
 class NoStretchScrollBehavior extends MaterialScrollBehavior {
   const NoStretchScrollBehavior();
@@ -147,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Map<String, dynamic>> _recommendedProducts = [
     {
       'name': 'Fresh Eggs (Native/Itlog na Manok)',
-      'price': 12,
+      'price': 12.0,
       'farm': 'Pampanga Poultry Farm',
       'rating': '4.9',
       'reviews': '1024',
@@ -156,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'name': 'Dinorado Rice (Premium)',
-      'price': 68,
+      'price': 68.0,
       'farm': 'Nueva Ecija Grains',
       'rating': '4.6',
       'reviews': '890',
@@ -165,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'name': 'Carabao Mango (Export Quality)',
-      'price': 180,
+      'price': 180.0,
       'farm': 'Guimaras Harvest Co.',
       'rating': '4.9',
       'reviews': '512',
@@ -174,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'name': 'Harvesting Sickle Set',
-      'price': 480,
+      'price': 480.0,
       'farm': 'AgroTools PH Demo',
       'rating': '4.9',
       'reviews': '157',
@@ -220,7 +221,8 @@ class _HomeScreenState extends State<HomeScreen> {
             behavior: const NoStretchScrollBehavior(),
             child: CustomScrollView(
               physics: const ClampingScrollPhysics(),
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader()),
                 SliverToBoxAdapter(child: _buildSaleBanner()),
@@ -236,12 +238,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          mainAxisExtent:
-                              250, // Fixed height matching the new card
-                        ),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      mainAxisExtent: 250,
+                    ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) =>
                           _buildRecommendedCard(_recommendedProducts[index]),
@@ -250,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
           ),
@@ -278,9 +279,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(
                       Icons.location_on_outlined,
                       color: Colors.white,
@@ -364,7 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white..withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -418,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 errorBuilder: (_, _, _) =>
                     Container(color: const Color(0xFF2B8A4A)),
               ),
-              Container(color: primaryGreen..withValues(alpha: 0.18)),
+              Container(color: primaryGreen.withValues(alpha: 0.18)),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -524,8 +525,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               GestureDetector(
                 onTap: () => _goToPage(const CategoriesScreen()),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Text(
                       'See all',
                       style: TextStyle(
@@ -547,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: _categories.map((category) {
               return GestureDetector(
-                onTap: () {},
+                onTap: () => _goToPage(const CategoriesScreen()),
                 child: Column(
                   children: [
                     CircleAvatar(
@@ -593,9 +594,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
-                child: Row(
-                  children: const [
+                onTap: () => _goToPage(const MarketplaceScreen()),
+                child: const Row(
+                  children: [
                     Text(
                       'See all',
                       style: TextStyle(
@@ -642,6 +643,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 60,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: const Color(0xFFE8F0E7),
+                              child: const Icon(Icons.store,
+                                  color: primaryGreen, size: 24),
+                            ),
                           ),
                         ),
                         Positioned(
@@ -768,8 +774,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               GestureDetector(
                 onTap: () => _goToPage(const MarketplaceScreen()),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Text(
                       'See all',
                       style: TextStyle(
@@ -785,17 +791,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Sample harvest dates from configured service areas',
                 style: TextStyle(fontSize: 9, color: mutedText),
               ),
               Row(
-                children: const [
+                children: [
                   Icon(
                     Icons.notifications_active_outlined,
                     size: 12,
@@ -845,6 +851,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 90,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: const Color(0xFFE8F0E7),
+                              child: const Icon(Icons.eco,
+                                  color: primaryGreen, size: 28),
+                            ),
                           ),
                         ),
                         Positioned(
@@ -859,9 +870,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: primaryGreen,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
+                            child: const Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
+                              children: [
                                 Icon(
                                   Icons.eco_outlined,
                                   color: Colors.white,
@@ -976,9 +987,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
-                child: Row(
-                  children: const [
+                onTap: () => _goToPage(const MarketplaceScreen()),
+                child: const Row(
+                  children: [
                     Text(
                       'See all',
                       style: TextStyle(
@@ -1071,7 +1082,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 2),
                         Text(
                           farmer['location'],
-                          style: const TextStyle(fontSize: 9, color: mutedText),
+                          style: const TextStyle(
+                              fontSize: 9, color: mutedText),
                         ),
                       ],
                     ),
@@ -1089,7 +1101,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 4),
                         Text(
                           '• ${farmer['products']}',
-                          style: const TextStyle(fontSize: 9, color: mutedText),
+                          style: const TextStyle(
+                              fontSize: 9, color: mutedText),
                         ),
                       ],
                     ),
@@ -1123,8 +1136,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               GestureDetector(
                 onTap: () => _goToPage(const MarketplaceScreen()),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     Text(
                       'See all',
                       style: TextStyle(
@@ -1140,9 +1153,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Text(
                 'Popular demo picks',
                 style: TextStyle(fontSize: 9, color: mutedText),
@@ -1169,110 +1182,131 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE8ECE8)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(15),
-                ),
-                child: Image.network(
-                  product['image'],
-                  height: 110,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailsScreen(
+                title: product['name'],
+                price: (product['price'] as num).toDouble(),
+                imageUrl: product['image'],
               ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(5),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    size: 14,
-                    color: mutedText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
-                Text(
-                  product['name'],
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: ink,
-                    height: 1.2,
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '₱${product['price']}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: primaryGreen,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  product['farm'],
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 8, color: mutedText),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          color: Color(0xFFFFB300),
-                          size: 10,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${product['rating']} (${product['reviews']})',
-                          style: const TextStyle(fontSize: 8, color: mutedText),
-                        ),
-                      ],
+                  child: Image.network(
+                    product['image'],
+                    height: 110,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: const Color(0xFFE8F0E7),
+                      child: const Icon(Icons.eco,
+                          color: primaryGreen, size: 32),
                     ),
-                    if (product['sold'] != null)
-                      Text(
-                        product['sold'],
-                        style: const TextStyle(fontSize: 8, color: mutedText),
-                      ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'DEMO DATA',
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    color: orangeText,
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.favorite_border,
+                      size: 14,
+                      color: mutedText,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: ink,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '₱${product['price']}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: primaryGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    product['farm'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 8, color: mutedText),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.star,
+                            color: Color(0xFFFFB300),
+                            size: 10,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${product['rating']} (${product['reviews']})',
+                            style: const TextStyle(
+                                fontSize: 8, color: mutedText),
+                          ),
+                        ],
+                      ),
+                      if (product['sold'] != null)
+                        Text(
+                          product['sold'],
+                          style:
+                              const TextStyle(fontSize: 8, color: mutedText),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'DEMO DATA',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: orangeText,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1280,8 +1314,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // --- FLOATING BOTTOM NAVIGATION ---
   Widget _buildBottomNavigation() {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
@@ -1294,7 +1328,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _navItem(Icons.home_filled, 'Home', true, () {}),
           _navItem(
@@ -1336,60 +1369,64 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback onTap, {
     int badge = 0,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
-                ),
-                if (badge > 0)
-                  Positioned(
-                    right: -4,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF3D4F),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$badge',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      right: -4,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF3D4F),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                color: selected ? primaryGreen : const Color(0xFF929B94),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                  color: selected ? primaryGreen : const Color(0xFF929B94),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

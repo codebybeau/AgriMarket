@@ -8,6 +8,7 @@ import 'categories_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
 import 'cart_screen.dart';
+import 'product_details_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -46,7 +47,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.8',
       'reviews': '234',
       'location': 'Benguet, CAR',
-      'image': 'https://images.unsplash.com/photo-1595856715694-814d34f0d619?w=600', // Bell peppers stand-in
+      'image': 'https://images.unsplash.com/photo-1595856715694-814d34f0d619?w=600',
       'badges': ['Organic'],
       'bottomBadges': ['Fresh harvest', 'Wholesale'],
     },
@@ -60,8 +61,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.9',
       'reviews': '512',
       'location': 'Guimaras, Western Visayas',
-      'image':
-          'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
+      'image': 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
       'badges': [],
       'bottomBadges': ['Fresh harvest', 'Wholesale', 'Pre-order'],
     },
@@ -75,8 +75,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.7',
       'reviews': '189',
       'location': 'Laguna, Region IV-A',
-      'image':
-          'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
+      'image': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
       'badges': [],
       'bottomBadges': [],
     },
@@ -90,12 +89,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.6',
       'reviews': '890',
       'location': 'Nueva Ecija, Region III',
-      'image':
-          'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
+      'image': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
       'badges': [],
       'bottomBadges': [],
     },
   ];
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _goToPage(Widget page) {
     Navigator.pushReplacement(
@@ -126,13 +130,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor:
-            Colors.transparent, // Changed for floating effect
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
-        extendBody: true, // REQUIRED for floating bottom navigation
+        extendBody: true,
         body: SafeArea(
           top: false,
           bottom: false,
@@ -143,14 +146,13 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               SliverToBoxAdapter(child: _buildCategories()),
               SliverToBoxAdapter(child: _buildResultsBar()),
               SliverPadding(
-                // Increased bottom padding to 110 to avoid overlap with floating bar
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    mainAxisExtent: 290, // Taller cards to fit content
+                    mainAxisExtent: 290,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _buildProductCard(_products[index]),
@@ -187,10 +189,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Marketplace',
                       style: TextStyle(
@@ -280,7 +282,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       clipBehavior: Clip.none,
       children: [
         Material(
-          color: Colors.white..withValues(alpha: 0.18),
+          color: Colors.white.withValues(alpha: 0.18),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -369,14 +371,14 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           ),
           InkWell(
             onTap: () => _showMessage('Sort Options'),
-            child: Row(
+            child: const Row(
               children: [
-                const Text(
+                Text(
                   'Relevance',
                   style: TextStyle(fontSize: 12, color: ink),
                 ),
-                const SizedBox(width: 2),
-                const Icon(Icons.keyboard_arrow_down, size: 16, color: ink),
+                SizedBox(width: 2),
+                Icon(Icons.keyboard_arrow_down, size: 16, color: ink),
               ],
             ),
           ),
@@ -398,275 +400,297 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         border: Border.all(color: const Color(0xFFE8ECE8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black..withValues(alpha: 0.18),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // IMAGE & BADGES
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  product['image'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      Container(color: const Color(0xFFE8F0E7)),
-                ),
-                // Discount Badge (Top Left)
-                if (product['discount'] != null)
-                  Positioned(
-                    left: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF3D4F),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        product['discount'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailsScreen(
+                title: product['name'],
+                price: (product['price'] as num).toDouble(),
+                unit: product['unit'].toString().replaceAll('/', ''),
+                imageUrl: product['image'],
+              ),
+            ),
+          );
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // IMAGE & BADGES
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    product['image'],
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: const Color(0xFFE8F0E7),
+                      child: const Center(
+                        child: Icon(
+                          Icons.eco,
+                          color: primaryGreen,
+                          size: 36,
                         ),
                       ),
                     ),
                   ),
-                // Top Right Badges (e.g. Organic)
-                if ((product['badges'] as List).isNotEmpty)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Row(
-                      children: (product['badges'] as List).map((badge) {
-                        return Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
+                  // Discount Badge (Top Left)
+                  if (product['discount'] != null)
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF3D4F),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          product['discount'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
                           ),
-                          decoration: BoxDecoration(
-                            color: darkGreen,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            badge,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                // Bottom Badges (e.g. Fresh Harvest, Wholesale)
-                if ((product['bottomBadges'] as List).isNotEmpty)
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: (product['bottomBadges'] as List).map((badge) {
-                        bool isFresh = badge == 'Fresh harvest';
-                        bool isPreorder = badge == 'Pre-order';
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isFresh
-                                ? primaryGreen
-                                : (isPreorder
-                                      ? const Color(0xFFFFF3E0)
-                                      : Colors.white),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            badge,
-                            style: TextStyle(
-                              color: isFresh
-                                  ? Colors.white
-                                  : (isPreorder
-                                        ? const Color(0xFFE65100)
-                                        : darkGreen),
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // DETAILS SECTION
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  product['name'],
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-
-                // Rating
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFFFB300),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${product['rating']} (${product['reviews']})',
-                      style: const TextStyle(fontSize: 10, color: mutedText),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Location
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      color: mutedText,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        product['location'],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9, color: mutedText),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Price & Add Button Row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: TextSpan(
-                              children: [
-                                const TextSpan(
-                                  text: '₱',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: darkGreen,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '${product['price'].toInt()}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: darkGreen,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: product['unit'],
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    color: mutedText,
-                                  ),
-                                ),
-                              ],
+                  // Top Right Badges (e.g. Organic)
+                  if ((product['badges'] as List).isNotEmpty)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Row(
+                        children: (product['badges'] as List).map((badge) {
+                          return Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
                             ),
-                          ),
-                          if (product['originalPrice'] != null)
-                            Text(
-                              '₱${product['originalPrice'].toInt()}',
+                            decoration: BoxDecoration(
+                              color: darkGreen,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              badge,
                               style: const TextStyle(
-                                fontSize: 10,
-                                color: mutedText,
-                                decoration: TextDecoration.lineThrough,
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                        ],
+                          );
+                        }).toList(),
                       ),
                     ),
+                  // Bottom Badges (e.g. Fresh Harvest, Wholesale)
+                  if ((product['bottomBadges'] as List).isNotEmpty)
+                    Positioned(
+                      left: 8,
+                      bottom: 8,
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: (product['bottomBadges'] as List).map((badge) {
+                          bool isFresh = badge == 'Fresh harvest';
+                          bool isPreorder = badge == 'Pre-order';
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isFresh
+                                  ? primaryGreen
+                                  : (isPreorder
+                                      ? const Color(0xFFFFF3E0)
+                                      : Colors.white),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              badge,
+                              style: TextStyle(
+                                color: isFresh
+                                    ? Colors.white
+                                    : (isPreorder
+                                        ? const Color(0xFFE65100)
+                                        : darkGreen),
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
 
-                    // Add Button Pill
-                    Material(
-                      color: const Color(
-                        0xFF2DB05F,
-                      ), // Lighter green action button
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: () =>
-                            _showMessage('Added ${product['name']} to cart'),
+            // DETAILS SECTION
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title
+                  Text(
+                    product['name'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: ink,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+
+                  // Rating
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFFB300),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${product['rating']} (${product['reviews']})',
+                        style: const TextStyle(fontSize: 10, color: mutedText),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Location
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        color: mutedText,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          product['location'],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, color: mutedText),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Price & Add Button Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text: '₱',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: darkGreen,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${product['price'].toInt()}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: darkGreen,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: product['unit'],
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: mutedText,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (product['originalPrice'] != null)
+                              Text(
+                                '₱${product['originalPrice'].toInt()}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: mutedText,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      // Add Button Pill
+                      Material(
+                        color: const Color(0xFF2DB05F),
                         borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                        child: InkWell(
+                          onTap: () => _showMessage(
+                            'Added ${product['name']} to cart',
                           ),
-                          child: Text(
-                            '+ Add',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                          borderRadius: BorderRadius.circular(12),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            child: Text(
+                              '+ Add',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   // ==============================================
-  // FLOATING BOTTOM NAV (Matched to HomeScreen)
+  // FLOATING BOTTOM NAV
   // ==============================================
 
   Widget _buildBottomNavigation() {
     return Container(
-      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
@@ -679,7 +703,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _navItem(
             Icons.home_filled,
@@ -698,7 +721,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             'Marketplace',
             true,
             () {},
-          ), // Currently Active tab
+          ),
           Consumer<NotificationProvider>(
             builder: (context, provider, _) => _navItem(
               Icons.notifications_none_rounded,
@@ -726,62 +749,66 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     VoidCallback onTap, {
     int badge = 0,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFE8F5E9)
-              : Colors.transparent, // Light green pill for active state
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  icon,
-                  size: 22,
-                  color: selected ? primaryGreen : const Color(0xFF9AA39B),
-                ),
-                if (badge > 0)
-                  Positioned(
-                    right: -4,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFFF3D4F),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$badge',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected
+                ? const Color(0xFFE8F5E9)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      right: -4,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF3D4F),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: selected ? FontWeight.bold : FontWeight.w600,
-                color: selected ? primaryGreen : const Color(0xFF929B94),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                  color: selected ? primaryGreen : const Color(0xFF929B94),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
