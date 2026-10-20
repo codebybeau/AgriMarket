@@ -17,7 +17,6 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
-  static const Color darkGreen = Color(0xFF105B31);
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color unreadBg = Color(0xFFEEF9F1);
   static const Color ink = Color(0xFF17211B);
@@ -25,14 +24,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   String _selectedTab = 'All';
 
-  // Mock data perfectly matching the UI reference image
   final List<Map<String, dynamic>> _notifications = [
     {
       'id': 1,
       'isNew': true,
       'type': 'alert',
       'title': 'Fresh Harvest Alert',
-      'message': 'Mang Celso Farm listed freshly harvested ampalaya for the Kidapawan service area. Sample alert only.',
+      'message':
+          'Mang Celso Farm listed freshly harvested ampalaya for the Kidapawan service area. Sample alert only.',
       'time': '10 min ago',
       'isRead': false,
     },
@@ -41,7 +40,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'order',
       'title': 'Order Confirmed',
-      'message': 'Your order #ORD-2024-001 has been confirmed by the seller. Mang Celso Farm is preparing your items.',
+      'message':
+          'Your order #ORD-2024-001 has been confirmed by the seller. Mang Celso Farm is preparing your items.',
       'time': '30 min ago',
       'isRead': false,
     },
@@ -50,7 +50,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'order',
       'title': 'Order Shipped',
-      'message': 'Your order #ORD-2024-001 is on its way! Expected delivery: Nov 25. Tracking: AGM-2024-1234.',
+      'message':
+          'Your order #ORD-2024-001 is on its way! Expected delivery: Nov 25. Tracking: AGM-2024-1234.',
       'time': '2 hours ago',
       'isRead': false,
     },
@@ -59,7 +60,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': true,
       'type': 'promo',
       'title': '🎊 Harvest Season Sale!',
-      'message': 'Get up to 30% off on all fresh vegetables and fruits this weekend only. Sample promotional content.',
+      'message':
+          'Get up to 30% off on all fresh vegetables and fruits this weekend only. Sample promotional content.',
       'time': '5 hours ago',
       'isRead': false,
     },
@@ -68,7 +70,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': false,
       'type': 'order_muted',
       'title': 'Order Delivered',
-      'message': 'Your order #ORD-2024-002 has been delivered successfully. Enjoy your Carabao Mangoes! Please rate the seller.',
+      'message':
+          'Your order #ORD-2024-002 has been delivered successfully. Enjoy your Carabao Mangoes! Please rate the seller.',
       'time': '1 day ago',
       'isRead': true,
     },
@@ -77,7 +80,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       'isNew': false,
       'type': 'alert_muted',
       'title': 'Product Update',
-      'message': 'New features have been added to your AgriMart experience. Tap here to learn more about the latest updates.',
+      'message':
+          'New features have been added to your AgriMart experience. Tap here to learn more about the latest updates.',
       'time': '2 days ago',
       'isRead': true,
     },
@@ -100,68 +104,74 @@ class _NotificationScreenState extends State<NotificationScreen> {
         n['isRead'] = true;
       }
     });
-    // In a real app, you would also call your provider here:
-    // context.read<NotificationProvider>().markAllAsRead();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter lists based on sections
-    final newNotifications = _notifications
-        .where((n) => n['isNew'] == true)
-        .toList();
-    final earlierNotifications = _notifications
-        .where((n) => n['isNew'] == false)
-        .toList();
+    // Active filter logic
+    final filteredNotifications = _notifications.where((n) {
+      if (_selectedTab == 'Orders') {
+        return (n['type'] as String).contains('order');
+      } else if (_selectedTab == 'Updates') {
+        return !(n['type'] as String).contains('order');
+      }
+      return true;
+    }).toList();
+
+    final newNotifications =
+        filteredNotifications.where((n) => n['isNew'] == true).toList();
+    final earlierNotifications =
+        filteredNotifications.where((n) => n['isNew'] == false).toList();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: primaryGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true,
         body: Column(
           children: [
             _buildHeader(),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 20),
-                children: [
-                  if (newNotifications.isNotEmpty) ...[
-                    _buildSectionTitle('NEW'),
-                    ...newNotifications.map((n) => _buildNotificationItem(n)),
-                  ],
-                  if (earlierNotifications.isNotEmpty) ...[
-                    _buildSectionTitle('EARLIER'),
-                    ...earlierNotifications.map(
-                      (n) => _buildNotificationItem(n),
+              child: filteredNotifications.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No notifications in this category.',
+                        style: TextStyle(color: mutedText, fontSize: 13),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      children: [
+                        if (newNotifications.isNotEmpty) ...[
+                          _buildSectionTitle('NEW'),
+                          ...newNotifications
+                              .map((n) => _buildNotificationItem(n)),
+                        ],
+                        if (earlierNotifications.isNotEmpty) ...[
+                          _buildSectionTitle('EARLIER'),
+                          ...earlierNotifications
+                              .map((n) => _buildNotificationItem(n)),
+                        ],
+                        const SizedBox(height: 110),
+                      ],
                     ),
-                  ],
-                  const SizedBox(height: 80), // Padding for floating nav bar
-                ],
-              ),
             ),
           ],
         ),
-        // Use the exact custom floating bottom nav bar from your Home screen
         bottomNavigationBar: _buildBottomNavigation(),
-        extendBody:
-            true, // Allows content to scroll behind the floating nav bar
       ),
     );
   }
 
-  // ==============================================
-  // HEADER
-  // ==============================================
-
+  // --- HEADER ---
   Widget _buildHeader() {
-    int unreadCount = _notifications
-        .where((n) => !(n['isRead'] as bool))
-        .length;
+    final int unreadCount =
+        _notifications.where((n) => !(n['isRead'] as bool)).length;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -240,7 +250,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // TABS
+          // TAB SELECTION
           Padding(
             padding: const EdgeInsets.only(left: 12),
             child: Row(
@@ -259,7 +269,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Widget _buildTabPill(String label) {
-    bool isSelected = _selectedTab == label;
+    final bool isSelected = _selectedTab == label;
     return GestureDetector(
       onTap: () => setState(() => _selectedTab = label),
       child: Container(
@@ -285,10 +295,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  // ==============================================
-  // NOTIFICATION LIST
-  // ==============================================
-
+  // --- NOTIFICATION LIST ITEM ---
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
@@ -305,10 +312,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Widget _buildNotificationItem(Map<String, dynamic> notification) {
-    bool isRead = notification['isRead'];
-    String type = notification['type'];
+    final bool isRead = notification['isRead'];
+    final String type = notification['type'];
 
-    // Icon Configuration based on notification type
     Color iconBgColor;
     Color iconColor;
     IconData iconData;
@@ -352,7 +358,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Icon Avatar
               Container(
                 width: 40,
                 height: 40,
@@ -363,7 +368,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 child: Icon(iconData, color: iconColor, size: 18),
               ),
               const SizedBox(width: 14),
-              // Text Content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,7 +401,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              // Unread Dot Indicator
               if (!isRead)
                 Container(
                   width: 8,
@@ -417,77 +420,64 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
-  // ==============================================
-  // BOTTOM NAV (Matches HomeScreen)
-  // ==============================================
-
+  // --- FLOATING BOTTOM NAVIGATION ---
   Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+    return Container(
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
+              true,
+              () {},
+              badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
-              false,
-              () => _goToPage(const HomeScreen()),
-            ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              false,
-              () => _goToPage(const CategoriesScreen()),
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            // THIS ITEM IS NOW ACTIVE
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                true, // Active state true
-                () {}, // Already here
-                badge: provider.unreadCount,
-              ),
-            ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              false,
-              () => _goToPage(const ProfileScreen()),
-            ),
-          ],
-        ),
+          ),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
+        ],
       ),
     );
   }
 
   Widget _navItem(
     IconData icon,
-    IconData activeIcon,
     String label,
     bool selected,
     VoidCallback onTap, {
@@ -496,55 +486,42 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  if (selected)
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F0E7),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(activeIcon, size: 19, color: darkGreen),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        icon,
-                        size: 19,
-                        color: const Color(0xFF9AA39B),
-                      ),
-                    ),
+                  Icon(
+                    icon,
+                    size: 20,
+                    color: selected ? primaryGreen : const Color(0xFF9AA39B),
+                  ),
                   if (badge > 0)
                     Positioned(
-                      right: -3,
+                      right: -4,
                       top: -2,
                       child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 14,
-                          minHeight: 14,
-                        ),
+                        padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                           color: Color(0xFFFF3D4F),
                           shape: BoxShape.circle,
                         ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        child: Text(
+                          '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
                           ),
                         ),
                       ),
@@ -557,9 +534,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: selected ? darkGreen : const Color(0xFF929B94),
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                  color: selected ? primaryGreen : const Color(0xFF929B94),
                 ),
               ),
             ],

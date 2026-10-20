@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../auth/login_screen.dart';
 import 'add_product_screen.dart';
 import 'farmer_orders_screen.dart';
 import 'farmer_products_screen.dart';
@@ -19,24 +20,192 @@ class FarmerHome extends StatefulWidget {
 class _FarmerHomeState extends State<FarmerHome> {
   int _selectedIndex = 0;
 
+  final List<String> _titles = const [
+    'Farmer Dashboard',
+    'My Orders',
+    'My Products',
+    'My Sales',
+    'My Profile',
+  ];
+
   void _goToTab(int index) {
+    if (index < 0 || index >= _titles.length) return;
+
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  late final List<Widget> _screens = [
-    _buildHomeScreen(),
-    const FarmerOrdersScreen(),
-    const FarmerProductsScreen(),
-    const FarmerSalesScreen(),
-    const FarmerProfileScreen(),
-  ];
-
   void _addProduct() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AddNewProductScreen()),
+      MaterialPageRoute(builder: (context) => const AddNewProductScreen()),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Log out?'),
+          content: const Text('Are you sure you want to log out of AgriMart?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: agriGreen,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Log Out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true || !mounted) return;
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    await auth.logout();
+
+    if (!mounted) return;
+
+    if (auth.isLoggedIn) {
+      _showMessage(auth.errorMessage ?? 'Unable to log out.');
+      return;
+    }
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screens = <Widget>[
+      _buildHomeScreen(),
+      const FarmerOrdersScreen(),
+      const FarmerProductsScreen(),
+      const FarmerSalesScreen(),
+      const FarmerProfileScreen(),
+    ];
+
+    return Scaffold(
+      backgroundColor: agriBackground,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: agriDarkGreen,
+        elevation: 0,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _titles[_selectedIndex],
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 19,
+                  color: agriDarkGreen,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              _showMessage('Notifications will be available soon.');
+            },
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: agriDarkGreen,
+            ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Account options',
+            onSelected: (value) {
+              if (value == 'logout') {
+                _confirmLogout();
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text('Log Out'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: IndexedStack(index: _selectedIndex, children: screens),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _goToTab,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: agriGreen,
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'Orders',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory_2_outlined),
+            activeIcon: Icon(Icons.inventory_2),
+            label: 'Products',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'Sales',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
     );
   }
 
@@ -200,7 +369,7 @@ class _FarmerHomeState extends State<FarmerHome> {
               onTap: () => _goToTab(3),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             Container(
               padding: const EdgeInsets.all(16),
@@ -290,79 +459,6 @@ class _FarmerHomeState extends State<FarmerHome> {
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const titles = ['Home', 'Orders', 'Products', 'Sales', 'Profile'];
-
-    return Scaffold(
-      backgroundColor: agriBackground,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: agriDarkGreen,
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Image.asset(
-                'assets/images/logo.png',
-                width: 28,
-                height: 28,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              titles[_selectedIndex],
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-            ),
-          ],
-        ),
-      ),
-      body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: _goToTab,
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: agriGreen,
-        unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
-            label: 'Products',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'Sales',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }
