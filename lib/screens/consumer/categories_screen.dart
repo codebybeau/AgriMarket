@@ -73,7 +73,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         {
           'name': 'Legumes & Beans',
-          'image': 'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1551462147-37885acc36f1?w=300',
         },
         {
           'name': 'Processed Foods',
@@ -187,7 +188,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         },
         {
           'name': 'Sprinkler Systems',
-          'image': 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=300',
+          'image':
+              'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=300',
         },
       ],
     },
@@ -254,7 +256,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent, // Changed to transparent for floating effect
+        systemNavigationBarColor:
+            Colors.transparent, // Changed to transparent for floating effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
@@ -295,11 +298,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 itemCount: items.length,
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
-                                  mainAxisExtent: 130,
-                                ),
+                                      crossAxisCount: 3,
+                                      crossAxisSpacing: 10,
+                                      mainAxisSpacing: 10,
+                                      mainAxisExtent: 130,
+                                    ),
                                 itemBuilder: (context, itemIndex) {
                                   return _buildCategoryCard(items[itemIndex]);
                                 },
@@ -594,9 +597,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
-          _navItem(Icons.grid_view_rounded, 'Categories', true, () {}), // Currently Active tab
-          _navItem(Icons.storefront_outlined, 'Marketplace', false, () => _goToPage(const MarketplaceScreen())),
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            true,
+            () {},
+          ), // Currently Active tab
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
           Consumer<NotificationProvider>(
             builder: (context, provider, _) => _navItem(
               Icons.notifications_none_rounded,
@@ -606,13 +624,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
           ),
-          _navItem(Icons.person_outline_rounded, 'Me', false, () => _goToPage(const ProfileScreen())),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    int badge = 0,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -620,7 +649,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          color: selected
+              ? const Color(0xFFE8F5E9)
+              : Colors.transparent, // Light green pill for active state
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(

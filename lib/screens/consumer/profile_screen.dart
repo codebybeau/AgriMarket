@@ -60,7 +60,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent, // Required for floating bar effect
+        systemNavigationBarColor:
+            Colors.transparent, // Required for floating bar effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
@@ -75,7 +76,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildFinancialServices(),
               _buildMoreActivities(),
               _buildSupportSection(),
-              const SizedBox(height: 100), // Padding to prevent bottom floating bar overlap
+              const SizedBox(
+                height: 100,
+              ), // Padding to prevent bottom floating bar overlap
             ],
           ),
         ),
@@ -167,8 +170,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           isLoggedIn
                               ? (auth.role == 'farmer'
-                                  ? 'Farmer Account'
-                                  : 'Consumer Account')
+                                    ? 'Farmer Account'
+                                    : 'Consumer Account')
                               : 'Sign in or create an account',
                           style: const TextStyle(
                             color: Colors.white70,
@@ -335,11 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildCardWrapper(
       child: Column(
         children: [
-          _buildSectionHeader(
-            'Financial Services',
-            '',
-            null,
-          ),
+          _buildSectionHeader('Financial Services', '', null),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
             child: Row(
@@ -736,9 +735,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
-          _navItem(Icons.grid_view_rounded, 'Categories', false, () => _goToPage(const CategoriesScreen())),
-          _navItem(Icons.storefront_outlined, 'Marketplace', false, () => _goToPage(const MarketplaceScreen())),
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
           Consumer<NotificationProvider>(
             builder: (context, provider, _) => _navItem(
               Icons.notifications_none_rounded,
@@ -755,7 +769,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    int badge = 0,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -763,7 +783,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          color: selected
+              ? const Color(0xFFE8F5E9)
+              : Colors.transparent, // Light green pill for active state
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(

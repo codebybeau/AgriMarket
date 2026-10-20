@@ -126,7 +126,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent, // Changed for floating effect
+        systemNavigationBarColor:
+            Colors.transparent, // Changed for floating effect
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
@@ -680,9 +681,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _navItem(Icons.home_filled, 'Home', false, () => _goToPage(const HomeScreen())),
-          _navItem(Icons.grid_view_rounded, 'Categories', false, () => _goToPage(const CategoriesScreen())),
-          _navItem(Icons.storefront_outlined, 'Marketplace', true, () {}), // Currently Active tab
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            true,
+            () {},
+          ), // Currently Active tab
           Consumer<NotificationProvider>(
             builder: (context, provider, _) => _navItem(
               Icons.notifications_none_rounded,
@@ -692,13 +708,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
           ),
-          _navItem(Icons.person_outline_rounded, 'Me', false, () => _goToPage(const ProfileScreen())),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool selected, VoidCallback onTap, {int badge = 0}) {
+  Widget _navItem(
+    IconData icon,
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    int badge = 0,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -706,7 +733,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFE8F5E9) : Colors.transparent, // Light green pill for active state
+          color: selected
+              ? const Color(0xFFE8F5E9)
+              : Colors.transparent, // Light green pill for active state
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
