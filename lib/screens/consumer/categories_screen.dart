@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'home_screen.dart';
 import 'marketplace_screen.dart';
 import 'notification_screen.dart';
@@ -355,7 +356,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
-        MediaQuery.of(context).padding.top + 20,
+        MediaQuery.of(context).padding.top + 16,
         16,
         16,
       ),
@@ -378,17 +379,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                 ),
               ),
-              Consumer<NotificationProvider>(
-                builder: (context, provider, _) => _headerAction(
-                  Icons.chat_bubble_outline_rounded,
-                  onTap: () => _goToPage(const MessagesScreen()),
-                  badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
+
+              // Shopping Cart Icon on LEFT
+              Consumer<CartProvider>(
+                builder: (context, cartProvider, _) => _headerAction(
+                  Icons.shopping_cart_outlined,
+                  onTap: () => _goToPage(const CartScreen()),
+                  badge: cartProvider.totalCartCount,
                 ),
               ),
+
               const SizedBox(width: 8),
+
+              // Chat / Messages Icon on RIGHT
               _headerAction(
-                Icons.shopping_cart_outlined,
-                onTap: () => _goToPage(const CartScreen()),
+                Icons.chat_bubble_outline_rounded,
+                onTap: () => _goToPage(const MessagesScreen()),
               ),
             ],
           ),

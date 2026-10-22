@@ -35,7 +35,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const Color primaryGreen = Color(0xFF176B3A);
-  static const Color darkGreen = Color(0xFF105B31);
+  static const Color darkGreen = Color(0xFF0D4B27);
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
@@ -43,6 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // Overlay Advertisement State
+  bool _showAdOverlay = true;
 
   // Banner Auto-Scroll Variables
   late final PageController _bannerPageController;
@@ -292,149 +295,452 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: darkGreen,
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
-      child: Scaffold(
-        backgroundColor: pageBackground,
-        extendBody: true,
-        body: SafeArea(
-          top: false,
-          bottom: false,
-          child: ScrollConfiguration(
-            behavior: const NoStretchScrollBehavior(),
-            child: CustomScrollView(
-              physics: const ClampingScrollPhysics(),
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                SliverToBoxAdapter(child: _buildHeader()),
-                SliverToBoxAdapter(child: _buildSaleBanner()),
-                SliverToBoxAdapter(child: _buildCategories()),
-                SliverToBoxAdapter(child: _buildFeaturedStores()),
-                SliverToBoxAdapter(child: _buildFreshlyHarvested()),
-                SliverToBoxAdapter(child: _buildNearbyFarmers()),
+      child: Stack(
+        children: [
+          Scaffold(
+            backgroundColor: pageBackground,
+            extendBody: true,
+            body: SafeArea(
+              top: false,
+              bottom: false,
+              child: Column(
+                children: [
+                  // Pinned Sticky Header
+                  _buildHeader(),
+                  // Scrollable Body Content
+                  Expanded(
+                    child: ScrollConfiguration(
+                      behavior: const NoStretchScrollBehavior(),
+                      child: CustomScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        slivers: [
+                          SliverToBoxAdapter(child: _buildSaleBanner()),
+                          SliverToBoxAdapter(child: _buildCategories()),
+                          SliverToBoxAdapter(child: _buildFeaturedStores()),
+                          SliverToBoxAdapter(child: _buildFreshlyHarvested()),
+                          SliverToBoxAdapter(child: _buildNearbyFarmers()),
 
-                // Recommended For You Section
-                SliverToBoxAdapter(child: _buildRecommendedHeader()),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  sliver: SliverGrid(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 250,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) =>
-                          _buildRecommendedCard(_recommendedProducts[index]),
-                      childCount: _recommendedProducts.length,
+                          // Recommended For You Section
+                          SliverToBoxAdapter(child: _buildRecommendedHeader()),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                mainAxisExtent: 250,
+                              ),
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) => _buildRecommendedCard(
+                                    _recommendedProducts[index]),
+                                childCount: _recommendedProducts.length,
+                              ),
+                            ),
+                          ),
+
+                          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
-              ],
+                ],
+              ),
             ),
+            bottomNavigationBar: _buildBottomNavigation(),
           ),
-        ),
-        bottomNavigationBar: _buildBottomNavigation(),
+
+          // --- AGRIMART OVERLAY ADVERTISEMENT (OVERLAYS ENTIRE SCREEN & BOTBAR) ---
+          if (_showAdOverlay) _buildAdOverlay(),
+        ],
       ),
     );
   }
 
-  // --- HEADER ---
+  // --- AGRIMART POPUP OVERLAY ADVERTISEMENT ---
+  Widget _buildAdOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.65),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      alignment: Alignment.center,
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Main Ad Card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Image Header with Gradient Overlay
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    child: Stack(
+                      children: [
+                        Image.network(
+                          'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=800',
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            height: 160,
+                            color: primaryGreen,
+                            child: const Center(
+                              child: Icon(Icons.eco,
+                                  size: 60, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          height: 160,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.transparent,
+                                darkGreen.withValues(alpha: 0.85),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
+                          bottom: 12,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: orangeText,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Text(
+                                  'EXCLUSIVE OFFER',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'AgriMart Mega Fresh Pass',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content Section
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'GET ',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                              ),
+                            ),
+                            Text(
+                              '20% OFF',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: primaryGreen,
+                              ),
+                            ),
+                            const Text(
+                              ' YOUR FIRST ORDER',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Direct farm produce delivered straight to your door. Use promo code on checkout.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: mutedText,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Promo Code Box
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F7F2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: primaryGreen.withValues(alpha: 0.3),
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons.confirmation_number_outlined,
+                                    color: primaryGreen,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Code: AGRI20',
+                                    style: TextStyle(
+                                      color: darkGreen,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(
+                                    const ClipboardData(text: 'AGRI20'),
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Promo code copied!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  'COPY',
+                                  style: TextStyle(
+                                    color: primaryGreen,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Action Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() => _showAdOverlay = false);
+                              _goToPage(const MarketplaceScreen());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryGreen,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Claim Voucher & Shop Now',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Top Close Button (X)
+            Positioned(
+              right: -10,
+              top: -10,
+              child: GestureDetector(
+                onTap: () => setState(() => _showAdOverlay = false),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 18,
+                    color: ink,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- GRADIENT FARM HEADER ---
   Widget _buildHeader() {
     return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [darkGreen, primaryGreen, Color(0xFF1E824C)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+      ),
       padding: EdgeInsets.fromLTRB(
         16,
-        MediaQuery.of(context).padding.top + 24,
+        MediaQuery.of(context).padding.top + 12,
         16,
         16,
       ),
-      decoration: const BoxDecoration(
-        color: darkGreen,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'Metro Manila (NCR)',
-                      style: TextStyle(
-                        color: Colors.white,
+          Expanded(
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search,
+                    color: Color(0xFF88968C),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v),
+                      textInputAction: TextInputAction.search,
+                      style: const TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                        color: ink,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Organic Fertilizers & Seeds',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: orangeText,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(Icons.chevron_right, color: Colors.white70, size: 16),
-                  ],
-                ),
-              ),
-              Consumer<NotificationProvider>(
-                builder: (context, provider, _) => _headerAction(
-                  Icons.chat_bubble_outline_rounded,
-                  onTap: () => _goToPage(const MessagesScreen()),
-                  badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
-                ),
-              ),
-              const SizedBox(width: 10),
-              _headerAction(
-                Icons.shopping_cart_outlined,
-                onTap: () => _goToPage(const CartScreen()),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search products, farms, supplies...',
-                hintStyle: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF98A19B),
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: Color(0xFF8D9A91),
-                  size: 20,
-                ),
-                suffixIcon: _searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                        icon: const Icon(Icons.close, size: 17),
+                  ),
+                  if (_searchQuery.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        color: mutedText,
+                        size: 18,
                       ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                ],
               ),
+            ),
+          ),
+          const SizedBox(width: 10),
+
+          // Cart Icon with Badge
+          _headerIcon(
+            icon: Icons.shopping_cart_outlined,
+            badgeText: '97',
+            onTap: () => _goToPage(const CartScreen()),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Chat Icon with Badge
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _headerIcon(
+              icon: Icons.chat_bubble_outline_rounded,
+              badgeText: provider.unreadCount > 0
+                  ? '${provider.unreadCount}'
+                  : '12',
+              onTap: () => _goToPage(const MessagesScreen()),
             ),
           ),
         ],
@@ -442,42 +748,47 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _headerAction(
-    IconData icon, {
+  Widget _headerIcon({
+    required IconData icon,
+    required String badgeText,
     required VoidCallback onTap,
-    int badge = 0,
   }) {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Material(
-          color: Colors.white.withValues(alpha: 0.18),
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Icon(icon, color: Colors.white, size: 20),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
             ),
           ),
         ),
-        if (badge > 0)
+        if (badgeText.isNotEmpty)
           Positioned(
             right: -2,
             top: -2,
             child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFF3D4F),
-                shape: BoxShape.circle,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF3D4F),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 14,
               ),
               child: Text(
-                badge > 99 ? '99+' : '$badge',
+                badgeText,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: FontWeight.bold,
                   height: 1.0,
                 ),
@@ -498,7 +809,6 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 120,
           child: Stack(
             children: [
-              // PageView Builder for Horizontal Scrolling
               PageView.builder(
                 controller: _bannerPageController,
                 onPageChanged: (index) {
@@ -570,8 +880,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-
-              // Animated Indicator Dots Overlay
               Positioned(
                 right: 16,
                 bottom: 12,
@@ -1462,8 +1770,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // --- FLOATING BOTTOM NAVIGATION ---
   Widget _buildBottomNavigation() {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      margin: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        bottom: bottomInset > 0 ? bottomInset + 8 : 16,
+      ),
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white,

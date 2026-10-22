@@ -8,6 +8,7 @@ import 'home_screen.dart';
 import 'categories_screen.dart';
 import 'profile_screen.dart';
 import 'notification_screen.dart';
+import 'messages_screen.dart';
 import 'cart_screen.dart';
 import 'product_details_screen.dart';
 
@@ -214,20 +215,22 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                   ],
                 ),
               ),
-              Consumer<NotificationProvider>(
-                builder: (context, provider, _) => _headerAction(
-                  Icons.chat_bubble_outline_rounded,
-                  onTap: () => _goToPage(const NotificationScreen()),
-                  badge: provider.unreadCount,
-                ),
-              ),
-              const SizedBox(width: 8),
+
+              // Shopping Cart Icon on LEFT
               Consumer<CartProvider>(
                 builder: (context, cartProvider, _) => _headerAction(
                   Icons.shopping_cart_outlined,
                   onTap: () => _goToPage(const CartScreen()),
                   badge: cartProvider.totalCartCount,
                 ),
+              ),
+
+              const SizedBox(width: 8),
+
+              // Chat / Messages Icon on RIGHT
+              _headerAction(
+                Icons.chat_bubble_outline_rounded,
+                onTap: () => _goToPage(const MessagesScreen()),
               ),
             ],
           ),
@@ -634,7 +637,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         ),
                       ),
 
-                      // Connected + Add Button
+                      // Add to Cart Button
                       Material(
                         color: const Color(0xFF2DB05F),
                         borderRadius: BorderRadius.circular(12),

@@ -5,11 +5,14 @@ import 'package:provider/provider.dart';
 import 'settings_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'marketplace_screen.dart';
 import 'home_screen.dart';
 import 'categories_screen.dart';
-import 'orders_screen.dart';
+import 'my_purchase_screen.dart';
+import 'agripay_screen.dart';
 import 'notification_screen.dart';
+import 'messages_screen.dart';
 import 'cart_screen.dart';
 import '../farmer/farmer_home_screen.dart';
 
@@ -75,9 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildFinancialServices(),
               _buildMoreActivities(),
               _buildSupportSection(),
-              const SizedBox(
-                height: 110,
-              ), // Padding to prevent bottom floating bar overlap
+              const SizedBox(height: 110),
             ],
           ),
         ),
@@ -116,17 +117,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () => _goToPage(const SettingsScreen()),
                   ),
                   const SizedBox(width: 8),
-                  _headerAction(
-                    Icons.shopping_cart_outlined,
-                    onTap: () => _goToPage(const CartScreen()),
-                  ),
-                  const SizedBox(width: 8),
-                  Consumer<NotificationProvider>(
-                    builder: (context, provider, _) => _headerAction(
-                      Icons.chat_bubble_outline_rounded,
-                      onTap: () => _goToPage(const NotificationScreen()),
-                      badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
+
+                  // Shopping Cart Icon on LEFT
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, _) => _headerAction(
+                      Icons.shopping_cart_outlined,
+                      onTap: () => _goToPage(const CartScreen()),
+                      badge: cartProvider.totalCartCount,
                     ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // Chat / Messages Icon on RIGHT
+                  _headerAction(
+                    Icons.chat_bubble_outline_rounded,
+                    onTap: () => _goToPage(const MessagesScreen()),
                   ),
                 ],
               ),
@@ -250,7 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildSectionHeader(
             'My Purchases',
             'View Purchase History',
-            () => _goToPage(const OrdersScreen()),
+            () => _goToPage(const MyPurchaseScreen()),
           ),
           const Divider(height: 1, color: Color(0xFFE8ECE8)),
           Padding(
@@ -262,7 +268,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.account_balance_wallet_outlined,
                     'To Pay',
                     badge: 0,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    onTap: () => _goToPage(
+                      const MyPurchaseScreen(initialTab: 'Pending'),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -270,7 +278,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.inventory_2_outlined,
                     'To Ship',
                     badge: 2,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    onTap: () => _goToPage(
+                      const MyPurchaseScreen(initialTab: 'To Ship'),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -278,7 +288,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.local_shipping_outlined,
                     'To Receive',
                     badge: 1,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    onTap: () => _goToPage(
+                      const MyPurchaseScreen(initialTab: 'To Receive'),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -286,7 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icons.assignment_return_outlined,
                     'Return/Refund',
                     badge: 0,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    onTap: () => _goToPage(
+                      const MyPurchaseScreen(initialTab: 'Return/Refund'),
+                    ),
                   ),
                 ),
               ],
@@ -311,9 +325,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: _buildActionIcon(
                     Icons.account_balance_wallet,
                     'AgriPay',
-                    subtitle: '₱ 0.00',
+                    subtitle: '₱5,240.75',
                     iconColor: primaryGreen,
-                    onTap: () => _showMessage('AgriPay Balance'),
+                    onTap: () => _goToPage(const AgriPayScreen()),
                   ),
                 ),
                 Expanded(

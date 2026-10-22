@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'home_screen.dart';
 import 'categories_screen.dart';
 import 'marketplace_screen.dart';
 import 'profile_screen.dart';
+import 'messages_screen.dart';
+import 'cart_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -175,8 +178,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        12,
-        MediaQuery.of(context).padding.top + 12,
+        16,
+        MediaQuery.of(context).padding.top + 16,
         16,
         16,
       ),
@@ -189,14 +192,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
         children: [
           Row(
             children: [
-              IconButton(
-                onPressed: () => _goToPage(const HomeScreen()),
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +200,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                       'Notifications',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -224,7 +219,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 onTap: _markAllRead,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
+                    horizontal: 10,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
@@ -247,12 +242,30 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+
+              // Shopping Cart Icon on LEFT
+              Consumer<CartProvider>(
+                builder: (context, cartProvider, _) => _headerAction(
+                  Icons.shopping_cart_outlined,
+                  onTap: () => _goToPage(const CartScreen()),
+                  badge: cartProvider.totalCartCount,
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              // Chat / Messages Icon on RIGHT
+              _headerAction(
+                Icons.chat_bubble_outline_rounded,
+                onTap: () => _goToPage(const MessagesScreen()),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           // TAB SELECTION
           Padding(
-            padding: const EdgeInsets.only(left: 12),
+            padding: const EdgeInsets.only(left: 4),
             child: Row(
               children: [
                 _buildTabPill('All'),
@@ -265,6 +278,54 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _headerAction(
+    IconData icon, {
+    required VoidCallback onTap,
+    int badge = 0,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: Colors.white.withValues(alpha: 0.18),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: Icon(icon, color: Colors.white, size: 19),
+            ),
+          ),
+        ),
+        if (badge > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFF3D4F),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  badge > 99 ? '99+' : '$badge',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
