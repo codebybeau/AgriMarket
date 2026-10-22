@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -19,76 +21,6 @@ class _CartScreenState extends State<CartScreen> {
   static const Color pageBackground = Color(0xFFF7F9F7);
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
-
-  // AGRIMART THEMED MOCK CART DATA
-  final List<Map<String, dynamic>> _cartShops = [
-    {
-      'shopName': 'Dela Cruz Family Farm',
-      'isMall': true, // Used for verified farm badge
-      'isPreferred': false,
-      'selected': false,
-      'items': [
-        {
-          'id': 'p1',
-          'name': 'Organic Ampalaya (Bitter Gourd)',
-          'variant': '1kg',
-          'price': 85.00,
-          'quantity': 2,
-          'selected': false,
-          'image':
-              'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=600',
-          'badge': 'Fresh Harvest',
-        },
-        {
-          'id': 'p2',
-          'name': 'Carabao Mango (Export Quality)',
-          'variant': '1kg',
-          'price': 180.00,
-          'quantity': 1,
-          'selected': false,
-          'image':
-              'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
-          'badge': null,
-        },
-      ],
-    },
-    {
-      'shopName': 'Nueva Ecija Rice Cooperative',
-      'isMall': false,
-      'isPreferred': true,
-      'selected': false,
-      'items': [
-        {
-          'id': 'p3',
-          'name': 'Dinorado Rice (Premium)',
-          'variant': '5kg Sack',
-          'price': 340.00,
-          'quantity': 1,
-          'selected': false,
-          'image': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
-          'badge': null,
-        },
-      ],
-    },
-    {
-      'shopName': 'Laguna Poultry & Meats',
-      'isMall': false,
-      'isPreferred': true,
-      'selected': false,
-      'items': [
-        {
-          'id': 'p4',
-          'name': 'Native Chicken (Whole)',
-          'variant': '1 piece (~1.2kg)',
-          'price': 350.00,
-          'quantity': 1,
-          'selected': false,
-          'image': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
-          'badge': null,
-        },
-      ],
-    },
-  ];
 
   bool _useCoins = false;
 
@@ -116,93 +48,10 @@ class _CartScreenState extends State<CartScreen> {
       );
   }
 
-  // Calculate overall total price of selected items
-  double get _totalPrice {
-    double total = 0.0;
-    for (var shop in _cartShops) {
-      for (var item in shop['items']) {
-        if (item['selected'] == true) {
-          total += (item['price'] as double) * (item['quantity'] as int);
-        }
-      }
-    }
-    return total;
-  }
-
-  // Calculate total count of selected items
-  int get isSelected {
-    int count = 0;
-    for (var shop in _cartShops) {
-      for (var item in shop['items']) {
-        if (item['selected'] == true) {
-          count += item['quantity'] as int;
-        }
-      }
-    }
-    return count;
-  }
-
-  // Check if all items across all shops are selected
-  bool get _isAllSelected {
-    if (_cartShops.isEmpty) return false;
-    for (var shop in _cartShops) {
-      for (var item in shop['items']) {
-        if (item['selected'] == false) return false;
-      }
-    }
-    return true;
-  }
-
-  // Select/Deselect All
-  void _toggleSelectAll(bool? val) {
-    final newValue = val ?? false;
-    setState(() {
-      for (var shop in _cartShops) {
-        shop['selected'] = newValue;
-        for (var item in shop['items']) {
-          item['selected'] = newValue;
-        }
-      }
-    });
-  }
-
-  // Select/Deselect Shop
-  void _toggleShopSelect(Map<String, dynamic> shop, bool? val) {
-    final newValue = val ?? false;
-    setState(() {
-      shop['selected'] = newValue;
-      for (var item in shop['items']) {
-        item['selected'] = newValue;
-      }
-    });
-  }
-
-  // Toggle Individual Item Selection
-  void _toggleItemSelect(
-    Map<String, dynamic> shop,
-    Map<String, dynamic> item,
-    bool? val,
-  ) {
-    setState(() {
-      item['selected'] = val ?? false;
-      shop['selected'] = (shop['items'] as List).every(
-        (i) => i['selected'] == true,
-      );
-    });
-  }
-
-  // Change Quantity
-  void _updateQuantity(Map<String, dynamic> item, int delta) {
-    setState(() {
-      final newQty = (item['quantity'] as int) + delta;
-      if (newQty >= 1) {
-        item['quantity'] = newQty;
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    final cartProvider = context.watch<CartProvider>();
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
@@ -216,9 +65,7 @@ class _CartScreenState extends State<CartScreen> {
           top: false,
           child: Column(
             children: [
-              // ==============================================
-              // GREEN TOP HEADER
-              // ==============================================
+              // Header
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -244,10 +91,10 @@ class _CartScreenState extends State<CartScreen> {
                         size: 22,
                       ),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Shopping Cart',
-                        style: TextStyle(
+                        'Shopping Cart (${cartProvider.totalCartCount})',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -321,30 +168,50 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
 
-              // ==============================================
-              // CART SHOP CARDS LIST
-              // ==============================================
+              // Cart Items List
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  itemCount: _cartShops.length,
-                  itemBuilder: (context, index) {
-                    return _buildShopCard(_cartShops[index]);
-                  },
-                ),
+                child: cartProvider.cartShops.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.shopping_cart_outlined,
+                                size: 64, color: mutedText),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Your cart is empty',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Explore marketplace to add fresh products',
+                              style: TextStyle(fontSize: 12, color: mutedText),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        itemCount: cartProvider.cartShops.length,
+                        itemBuilder: (context, index) {
+                          return _buildShopCard(
+                              context, cartProvider.cartShops[index]);
+                        },
+                      ),
               ),
 
-              // ==============================================
-              // VOUCHERS & REWARDS BAR
-              // ==============================================
+              // Vouchers and Coins Option
               Container(
                 color: Colors.white,
                 child: Column(
                   children: [
-                    // Platform Vouchers Row
                     InkWell(
                       onTap: () => _showMessage('Voucher selection opened'),
                       child: Padding(
@@ -386,8 +253,6 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     const Divider(height: 1, color: Color(0xFFEEEEEE)),
-
-                    // AgriCoins Toggle Row
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -409,12 +274,14 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            isSelected == 0
+                            cartProvider.selectedCount == 0
                                 ? 'No item selected'
                                 : 'AgriCoins Cashback Available',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isSelected == 0 ? Colors.grey : ink,
+                              color: cartProvider.selectedCount == 0
+                                  ? Colors.grey
+                                  : ink,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -427,9 +294,10 @@ class _CartScreenState extends State<CartScreen> {
                           Transform.scale(
                             scale: 0.8,
                             child: Switch(
-                              value: _useCoins && isSelected > 0,
+                              value:
+                                  _useCoins && cartProvider.selectedCount > 0,
                               activeThumbColor: primaryGreen,
-                              onChanged: isSelected == 0
+                              onChanged: cartProvider.selectedCount == 0
                                   ? null
                                   : (v) => setState(() => _useCoins = v),
                             ),
@@ -441,9 +309,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
 
-              // ==============================================
-              // BOTTOM CHECKOUT BAR
-              // ==============================================
+              // Bottom Total & Checkout Bar
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
@@ -460,23 +326,21 @@ class _CartScreenState extends State<CartScreen> {
                   vertical: 8,
                 ),
                 child: SafeArea(
-                  // Added SafeArea here so it doesn't overlap with iOS home indicators
                   top: false,
                   child: Row(
                     children: [
-                      // Select All Checkbox
                       Row(
                         children: [
                           SizedBox(
                             width: 24,
                             height: 24,
                             child: Checkbox(
-                              value: _isAllSelected,
+                              value: cartProvider.isAllSelected,
                               activeColor: primaryGreen,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              onChanged: _toggleSelectAll,
+                              onChanged: cartProvider.toggleSelectAll,
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -487,8 +351,6 @@ class _CartScreenState extends State<CartScreen> {
                         ],
                       ),
                       const Spacer(),
-
-                      // Total Amount Text
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
@@ -500,7 +362,7 @@ class _CartScreenState extends State<CartScreen> {
                                 style: TextStyle(fontSize: 12, color: ink),
                               ),
                               Text(
-                                '₱${_totalPrice.toStringAsFixed(0)}',
+                                '₱${cartProvider.totalPrice.toStringAsFixed(0)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -512,14 +374,26 @@ class _CartScreenState extends State<CartScreen> {
                         ],
                       ),
                       const SizedBox(width: 12),
-
-                      // Checkout Button
                       SizedBox(
                         height: 42,
                         child: ElevatedButton(
-                          onPressed: isSelected == 0
+                          onPressed: cartProvider.selectedCount == 0
                               ? null
-                              : () => _showMessage('Proceeding to Checkout!'),
+                              : () {
+                                  final selectedItems =
+                                      cartProvider.getSelectedCheckoutItems();
+
+                                  Navigator.pushReplacement(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder: (_, _, _) => CheckoutScreen(
+                                        checkoutItems: selectedItems,
+                                      ),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryGreen,
                             disabledBackgroundColor: Colors.grey.shade300,
@@ -530,7 +404,7 @@ class _CartScreenState extends State<CartScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 18),
                           ),
                           child: Text(
-                            'Check Out ($isSelected)',
+                            'Check Out (${cartProvider.selectedCount})',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -550,11 +424,9 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  // ==============================================
-  // SHOP CARD WIDGET
-  // ==============================================
+  Widget _buildShopCard(BuildContext context, Map<String, dynamic> shop) {
+    final cartProvider = context.read<CartProvider>();
 
-  Widget _buildShopCard(Map<String, dynamic> shop) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -571,7 +443,6 @@ class _CartScreenState extends State<CartScreen> {
       ),
       child: Column(
         children: [
-          // SHOP HEADER ROW
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 12, 6),
             child: Row(
@@ -585,12 +456,11 @@ class _CartScreenState extends State<CartScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    onChanged: (val) => _toggleShopSelect(shop, val),
+                    onChanged: (val) =>
+                        cartProvider.toggleShopSelect(shop, val),
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Mall / Preferred Badge
                 if (shop['isMall'] == true)
                   Container(
                     margin: const EdgeInsets.only(right: 6),
@@ -631,7 +501,6 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                   ),
-
                 Expanded(
                   child: Row(
                     children: [
@@ -655,7 +524,6 @@ class _CartScreenState extends State<CartScreen> {
                     ],
                   ),
                 ),
-
                 TextButton(
                   onPressed: () => _showMessage('Editing shop items'),
                   style: TextButton.styleFrom(
@@ -672,8 +540,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // ITEM CARDS IN THIS SHOP
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -682,31 +548,28 @@ class _CartScreenState extends State<CartScreen> {
                 const Divider(height: 1, color: Color(0xFFF5F5F5)),
             itemBuilder: (context, itemIdx) {
               final item = shop['items'][itemIdx];
-              return _buildItemRow(shop, item);
+              return _buildItemRow(context, shop, item);
             },
           ),
-
           const Divider(height: 1, color: Color(0xFFF0F0F0)),
-
-          // SHOP VOUCHER ROW
           InkWell(
             onTap: () => _showMessage('Add shop voucher code'),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.confirmation_number_outlined,
                     color: primaryGreen,
                     size: 16,
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     'Add shop voucher code',
                     style: TextStyle(fontSize: 12, color: mutedText),
                   ),
-                  const Spacer(),
-                  const Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                  Spacer(),
+                  Icon(Icons.chevron_right, size: 16, color: Colors.grey),
                 ],
               ),
             ),
@@ -716,17 +579,15 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  // ==============================================
-  // INDIVIDUAL ITEM ROW
-  // ==============================================
+  Widget _buildItemRow(
+      BuildContext context, Map<String, dynamic> shop, Map<String, dynamic> item) {
+    final cartProvider = context.read<CartProvider>();
 
-  Widget _buildItemRow(Map<String, dynamic> shop, Map<String, dynamic> item) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item Checkbox
           SizedBox(
             width: 24,
             height: 24,
@@ -736,12 +597,11 @@ class _CartScreenState extends State<CartScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
               ),
-              onChanged: (val) => _toggleItemSelect(shop, item, val),
+              onChanged: (val) =>
+                  cartProvider.toggleItemSelect(shop, item, val),
             ),
           ),
           const SizedBox(width: 8),
-
-          // Item Image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
@@ -758,8 +618,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Item Details & Controls
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -775,8 +633,6 @@ class _CartScreenState extends State<CartScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-
-                // Variant selector dropdown
                 if (item['variant'] != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -806,8 +662,6 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   ),
                 const SizedBox(height: 8),
-
-                // Price & Quantity Control Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -819,8 +673,6 @@ class _CartScreenState extends State<CartScreen> {
                         color: primaryGreen,
                       ),
                     ),
-
-                    // Quantity Stepper (- 1 +)
                     Container(
                       height: 26,
                       decoration: BoxDecoration(
@@ -830,7 +682,8 @@ class _CartScreenState extends State<CartScreen> {
                       child: Row(
                         children: [
                           InkWell(
-                            onTap: () => _updateQuantity(item, -1),
+                            onTap: () =>
+                                cartProvider.updateQuantity(shop, item, -1),
                             child: const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
@@ -856,7 +709,8 @@ class _CartScreenState extends State<CartScreen> {
                             ),
                           ),
                           InkWell(
-                            onTap: () => _updateQuantity(item, 1),
+                            onTap: () =>
+                                cartProvider.updateQuantity(shop, item, 1),
                             child: const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 8),
                               child: Text(

@@ -11,6 +11,7 @@ import 'categories_screen.dart';
 import 'orders_screen.dart';
 import 'notification_screen.dart';
 import 'cart_screen.dart';
+import '../farmer/farmer_home_screen.dart';
 
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
@@ -59,13 +60,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true,
         body: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 20),
           child: Column(
             children: [
               _buildProfileHeader(),
@@ -74,6 +75,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildFinancialServices(),
               _buildMoreActivities(),
               _buildSupportSection(),
+              const SizedBox(
+                height: 110,
+              ), // Padding to prevent bottom floating bar overlap
             ],
           ),
         ),
@@ -121,14 +125,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     builder: (context, provider, _) => _headerAction(
                       Icons.chat_bubble_outline_rounded,
                       onTap: () => _goToPage(const NotificationScreen()),
-                      badge: provider.unreadCount,
+                      badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Real user information when logged in
+            // User information
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Row(
@@ -165,8 +169,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           isLoggedIn
                               ? (auth.role == 'farmer'
-                                    ? 'Farmer Account'
-                                    : 'Consumer Account')
+                                  ? 'Farmer Account'
+                                  : 'Consumer Account')
                               : 'Sign in or create an account',
                           style: const TextStyle(
                             color: Colors.white70,
@@ -180,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Show authentication buttons only to guests
+            // Guest auth buttons
             if (!isLoggedIn)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -252,31 +256,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildActionIcon(
-                  Icons.account_balance_wallet_outlined,
-                  'To Pay',
-                  badge: 0,
-                  onTap: () => _goToPage(const OrdersScreen()),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.account_balance_wallet_outlined,
+                    'To Pay',
+                    badge: 0,
+                    onTap: () => _goToPage(const OrdersScreen()),
+                  ),
                 ),
-                _buildActionIcon(
-                  Icons.inventory_2_outlined,
-                  'To Ship',
-                  badge: 2,
-                  onTap: () => _goToPage(const OrdersScreen()),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.inventory_2_outlined,
+                    'To Ship',
+                    badge: 2,
+                    onTap: () => _goToPage(const OrdersScreen()),
+                  ),
                 ),
-                _buildActionIcon(
-                  Icons.local_shipping_outlined,
-                  'To Receive',
-                  badge: 1,
-                  onTap: () => _goToPage(const OrdersScreen()),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.local_shipping_outlined,
+                    'To Receive',
+                    badge: 1,
+                    onTap: () => _goToPage(const OrdersScreen()),
+                  ),
                 ),
-                _buildActionIcon(
-                  Icons.assignment_return_outlined,
-                  'Return/Refund',
-                  badge: 0,
-                  onTap: () => _goToPage(const OrdersScreen()),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.assignment_return_outlined,
+                    'Return/Refund',
+                    badge: 0,
+                    onTap: () => _goToPage(const OrdersScreen()),
+                  ),
                 ),
               ],
             ),
@@ -295,31 +306,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildActionIcon(
-                  Icons.account_balance_wallet,
-                  'AgriPay',
-                  subtitle: '₱ 0.00',
-                  iconColor: primaryGreen,
-                  onTap: () => _showMessage('AgriPay Balance'),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.account_balance_wallet,
+                    'AgriPay',
+                    subtitle: '₱ 0.00',
+                    iconColor: primaryGreen,
+                    onTap: () => _showMessage('AgriPay Balance'),
+                  ),
                 ),
-                _buildActionIcon(
-                  Icons.monetization_on,
-                  'Coins',
-                  subtitle: '2.10 Coins',
-                  subtitleColor: highlightOrange,
-                  iconColor: const Color(0xFFFFB300),
-                  onTap: () => _showMessage('AgriMart Coins'),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.monetization_on,
+                    'Coins',
+                    subtitle: '2.10 Coins',
+                    subtitleColor: highlightOrange,
+                    iconColor: const Color(0xFFFFB300),
+                    onTap: () => _showMessage('AgriMart Coins'),
+                  ),
                 ),
-                _buildActionIcon(
-                  Icons.local_activity,
-                  'Vouchers',
-                  subtitle: '50+ Vouchers',
-                  subtitleColor: highlightOrange,
-                  badge: 1,
-                  iconColor: highlightOrange,
-                  onTap: () => _showMessage('My Vouchers'),
+                Expanded(
+                  child: _buildActionIcon(
+                    Icons.local_activity,
+                    'Vouchers',
+                    subtitle: '50+ Vouchers',
+                    subtitleColor: highlightOrange,
+                    badge: 1,
+                    iconColor: highlightOrange,
+                    onTap: () => _showMessage('My Vouchers'),
+                  ),
                 ),
               ],
             ),
@@ -333,11 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return _buildCardWrapper(
       child: Column(
         children: [
-          _buildSectionHeader(
-            'Financial Services',
-            'See More',
-            () => _showMessage('Financial Services'),
-          ),
+          _buildSectionHeader('Financial Services', '', null),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
             child: Row(
@@ -413,7 +425,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(child: SizedBox()),
+                Expanded(
+                  child: _buildGridItem(
+                    Icons.dashboard_rounded,
+                    'Seller Dashboard',
+                    'Sales & orders hub',
+                    primaryGreen,
+                    onTap: () {
+                      final auth = context.read<AuthProvider>();
+                      if (auth.isLoggedIn && auth.isFarmer) {
+                        _goToPage(const FarmerHome());
+                      } else {
+                        _showMessage('Seller Dashboard');
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -441,7 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(
             leading: const Icon(Icons.help_outline, color: mutedText),
             title: const Text(
-              'Help Centre',
+              'Help Center',
               style: TextStyle(fontSize: 13, color: ink),
             ),
             trailing: const Icon(
@@ -542,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Icon(icon, color: iconColor, size: 26),
+              Icon(icon, color: iconColor, size: 24),
               if (badge > 0)
                 Positioned(
                   right: -6,
@@ -571,9 +598,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
               color: ink,
@@ -584,7 +614,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 2),
             Text(
               subtitle,
-              style: TextStyle(fontSize: 10, color: subtitleColor ?? mutedText),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                color: subtitleColor ?? mutedText,
+              ),
             ),
           ],
         ],
@@ -598,9 +634,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String subtitle,
     Color iconColor, {
     bool isSubtitleHighlight = false,
+    VoidCallback? onTap,
   }) {
     return InkWell(
-      onTap: () => _showMessage(title),
+      onTap: onTap ?? () => _showMessage(title),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -663,16 +700,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: SizedBox(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               child: Icon(icon, color: Colors.white, size: 19),
             ),
           ),
         ),
         if (badge > 0)
           Positioned(
-            right: -3,
-            top: -4,
+            right: -2,
+            top: -2,
             child: Container(
               padding: const EdgeInsets.all(3),
               constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
@@ -701,71 +738,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ==========================================
 
   Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
+    return Container(
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _navItem(
+            Icons.home_filled,
+            'Home',
+            false,
+            () => _goToPage(const HomeScreen()),
+          ),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
               false,
-              () => _goToPage(const HomeScreen()),
+              () => _goToPage(const NotificationScreen()),
+              badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              false,
-              () => _goToPage(const CategoriesScreen()),
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                false,
-                () => _goToPage(const NotificationScreen()),
-                badge: provider.unreadCount,
-              ),
-            ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              true,
-              () {},
-            ),
-          ],
-        ),
+          ),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            true,
+            () {},
+          ),
+        ],
       ),
     );
   }
 
   Widget _navItem(
     IconData icon,
-    IconData activeIcon,
     String label,
     bool selected,
     VoidCallback onTap, {
@@ -774,9 +802,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -784,32 +817,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   Icon(
-                    selected ? activeIcon : icon,
-                    size: 19,
+                    icon,
+                    size: 20,
                     color: selected ? primaryGreen : const Color(0xFF9AA39B),
                   ),
                   if (badge > 0)
                     Positioned(
-                      right: -7,
-                      top: -6,
+                      right: -4,
+                      top: -2,
                       child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 13,
-                          minHeight: 13,
-                        ),
+                        padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                           color: Color(0xFFFF3D4F),
                           shape: BoxShape.circle,
                         ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        child: Text(
+                          '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
                           ),
                         ),
                       ),
@@ -822,8 +850,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
                   color: selected ? primaryGreen : const Color(0xFF929B94),
                 ),
               ),
