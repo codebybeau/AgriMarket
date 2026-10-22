@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'checkout_delivery_screen.dart';
+import 'saved_addresses_screen.dart';
 
 class CheckoutAddressScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
@@ -23,7 +24,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
   final TextEditingController _notesController = TextEditingController();
 
-  final Map<String, dynamic> _selectedAddress = {
+  Map<String, dynamic> _selectedAddress = {
     'name': 'Juan dela Cruz',
     'phone': '09171234567',
     'address':
@@ -48,6 +49,24 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+  }
+
+  void _openSavedAddresses() async {
+    final selected = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SavedAddressesScreen(
+          selectedAddress: _selectedAddress,
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedAddress = selected;
+      });
+      _showMessage('Delivery address updated');
+    }
   }
 
   @override
@@ -196,7 +215,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                                   ),
                                   const Spacer(),
                                   InkWell(
-                                    onTap: () => _showMessage('Change address clicked'),
+                                    onTap: _openSavedAddresses,
                                     child: const Text(
                                       'Change',
                                       style: TextStyle(
@@ -232,10 +251,11 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          _selectedAddress['name'],
+                                          _selectedAddress['name'] ?? '',
                                           style: const TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -244,7 +264,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          _selectedAddress['phone'],
+                                          _selectedAddress['phone'] ?? '',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: mutedText,
@@ -252,22 +272,26 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          _selectedAddress['address'],
+                                          _selectedAddress['address'] ?? '',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: ink,
                                             height: 1.3,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _selectedAddress['note'],
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: mutedText,
-                                            fontStyle: FontStyle.italic,
+                                        if ((_selectedAddress['note'] ?? '')
+                                            .toString()
+                                            .isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _selectedAddress['note'],
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: mutedText,
+                                              fontStyle: FontStyle.italic,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -301,7 +325,8 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                           maxLines: 3,
                           style: const TextStyle(fontSize: 13, color: ink),
                           decoration: const InputDecoration(
-                            hintText: 'e.g. Leave at the gate, call before delivery',
+                            hintText:
+                                'e.g. Leave at the gate, call before delivery',
                             hintStyle: TextStyle(
                               color: Color(0xFFA0AEC0),
                               fontSize: 12,
@@ -381,7 +406,8 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 
-  Widget _buildStepItem(int stepNumber, String title, {required int currentStep}) {
+  Widget _buildStepItem(int stepNumber, String title,
+      {required int currentStep}) {
     final bool isDone = stepNumber < currentStep;
     final bool isActive = stepNumber == currentStep;
 
