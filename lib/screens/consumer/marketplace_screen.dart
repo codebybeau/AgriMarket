@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'home_screen.dart';
 import 'categories_screen.dart';
 import 'profile_screen.dart';
@@ -35,7 +36,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     'Fish & Seafood',
   ];
 
-  // Mock data matching the UI reference
   final List<Map<String, dynamic>> _products = [
     {
       'name': 'Organic Ampalaya (Bitter Gourd)',
@@ -47,7 +47,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.8',
       'reviews': '234',
       'location': 'Benguet, CAR',
-      'image': 'https://images.unsplash.com/photo-1595856715694-814d34f0d619?w=600',
+      'shopName': 'Dela Cruz Family Farm',
+      'image':
+          'https://images.unsplash.com/photo-1595856715694-814d34f0d619?w=600',
       'badges': ['Organic'],
       'bottomBadges': ['Fresh harvest', 'Wholesale'],
     },
@@ -61,7 +63,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.9',
       'reviews': '512',
       'location': 'Guimaras, Western Visayas',
-      'image': 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
+      'shopName': 'Guimaras Harvest Co.',
+      'image':
+          'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
       'badges': [],
       'bottomBadges': ['Fresh harvest', 'Wholesale', 'Pre-order'],
     },
@@ -75,7 +79,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.7',
       'reviews': '189',
       'location': 'Laguna, Region IV-A',
-      'image': 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
+      'shopName': 'Laguna Poultry & Meats',
+      'image':
+          'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
       'badges': [],
       'bottomBadges': [],
     },
@@ -89,7 +95,9 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       'rating': '4.6',
       'reviews': '890',
       'location': 'Nueva Ecija, Region III',
-      'image': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
+      'shopName': 'Nueva Ecija Rice Cooperative',
+      'image':
+          'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
       'badges': [],
       'bottomBadges': [],
     },
@@ -120,6 +128,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
           content: Text(message),
           behavior: SnackBarBehavior.floating,
           backgroundColor: darkGreen,
+          duration: const Duration(seconds: 2),
         ),
       );
   }
@@ -168,10 +177,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  // ==============================================
-  // HEADER
-  // ==============================================
-
   Widget _buildHeader() {
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -217,9 +222,12 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              _headerAction(
-                Icons.shopping_cart_outlined,
-                onTap: () => _goToPage(const CartScreen()),
+              Consumer<CartProvider>(
+                builder: (context, cartProvider, _) => _headerAction(
+                  Icons.shopping_cart_outlined,
+                  onTap: () => _goToPage(const CartScreen()),
+                  badge: cartProvider.totalCartCount,
+                ),
               ),
             ],
           ),
@@ -321,10 +329,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  // ==============================================
-  // CATEGORIES & FILTER BAR
-  // ==============================================
-
   Widget _buildCategories() {
     return SizedBox(
       height: 56,
@@ -387,10 +391,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  // ==============================================
-  // PRODUCT CARD
-  // ==============================================
-
   Widget _buildProductCard(Map<String, dynamic> product) {
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -423,7 +423,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // IMAGE & BADGES
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -442,7 +441,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       ),
                     ),
                   ),
-                  // Discount Badge (Top Left)
                   if (product['discount'] != null)
                     Positioned(
                       left: 8,
@@ -466,7 +464,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         ),
                       ),
                     ),
-                  // Top Right Badges (e.g. Organic)
                   if ((product['badges'] as List).isNotEmpty)
                     Positioned(
                       right: 8,
@@ -495,7 +492,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         }).toList(),
                       ),
                     ),
-                  // Bottom Badges (e.g. Fresh Harvest, Wholesale)
                   if ((product['bottomBadges'] as List).isNotEmpty)
                     Positioned(
                       left: 8,
@@ -538,14 +534,11 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                 ],
               ),
             ),
-
-            // DETAILS SECTION
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title
                   Text(
                     product['name'],
                     maxLines: 2,
@@ -558,8 +551,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-
-                  // Rating
                   Row(
                     children: [
                       const Icon(
@@ -575,8 +566,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                     ],
                   ),
                   const SizedBox(height: 4),
-
-                  // Location
                   Row(
                     children: [
                       const Icon(
@@ -596,8 +585,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
-                  // Price & Add Button Row
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -647,14 +634,25 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                         ),
                       ),
 
-                      // Add Button Pill
+                      // Connected + Add Button
                       Material(
                         color: const Color(0xFF2DB05F),
                         borderRadius: BorderRadius.circular(12),
                         child: InkWell(
-                          onTap: () => _showMessage(
-                            'Added ${product['name']} to cart',
-                          ),
+                          onTap: () {
+                            context.read<CartProvider>().addToCart(
+                                  name: product['name'],
+                                  price: (product['price'] as num).toDouble(),
+                                  variant: product['unit']
+                                      .toString()
+                                      .replaceAll('/', ''),
+                                  image: product['image'],
+                                  shopName: product['shopName'],
+                                );
+                            _showMessage(
+                              'Added ${product['name']} to cart',
+                            );
+                          },
                           borderRadius: BorderRadius.circular(12),
                           child: const Padding(
                             padding: EdgeInsets.symmetric(
@@ -682,10 +680,6 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       ),
     );
   }
-
-  // ==============================================
-  // FLOATING BOTTOM NAV
-  // ==============================================
 
   Widget _buildBottomNavigation() {
     return Container(
