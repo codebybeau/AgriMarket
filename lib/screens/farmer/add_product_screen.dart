@@ -1,8 +1,8 @@
-import 'dart:typed_data';
-
+import 'dart:typed_data'; // Replaces dart:io
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AddNewProductScreen extends StatefulWidget {
   const AddNewProductScreen({super.key});
@@ -28,8 +28,11 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
   bool isLoading = false;
   bool isFetchingDropdowns = true;
 
+  // Image Picking Variables
+  // Image Picking Variables (Web-Safe)
   Uint8List? selectedImageBytes;
   String? selectedImageExtension;
+  final ImagePicker _picker = ImagePicker();
 
   List<Map<String, dynamic>> categoriesList = [];
   List<Map<String, dynamic>> unitsList = [];
@@ -59,41 +62,22 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     super.dispose();
   }
 
-  void _showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  // Pick a product image from the gallery.
+  // --- 1. OPEN GALLERY TO PICK IMAGE ---
   Future<void> _pickImage() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-
-      if (image == null) return;
-
-      final bytes = await image.readAsBytes();
-      final extension = image.name.contains('.')
-          ? image.name.split('.').last.toLowerCase()
-          : 'jpg';
-
-      if (!mounted) return;
-
-      setState(() {
-        selectedImageBytes = bytes;
-        selectedImageExtension = extension;
-      });
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          selectedImageBytes = bytes;
+          selectedImageExtension = image.name.split('.').last;
+        });
+      }
     } catch (e) {
       debugPrint('Error picking image: $e');
-      _showMessage('Could not select the product image.');
     }
   }
-
-  // Fetch categories and units from Supabase.
+  // --- 2. FETCH DROPDOWNS FROM DATABASE ---
   Future<void> _fetchDropdownData() async {
     try {
       final categoriesData = await supabase
@@ -108,15 +92,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         categoriesList = List<Map<String, dynamic>>.from(categoriesData);
 
         unitsList = List<Map<String, dynamic>>.from(unitsData);
-
-        if (categoriesList.isNotEmpty) {
-          selectedCategoryId = (categoriesList.first['id'] as num).toInt();
-        }
-
-        if (unitsList.isNotEmpty) {
-          selectedUnitId = (unitsList.first['id'] as num).toInt();
-        }
-
+        
+        if (categoriesList.isNotEmpty) selectedCategoryId = categoriesList[0]['id'];
+        if (unitsList.isNotEmpty) selectedUnitId = unitsList[0]['id'];
+        
         isFetchingDropdowns = false;
       });
     } catch (e) {
@@ -132,7 +111,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     }
   }
 
-  // Validate and publish the product.
+  // --- 3. PUBLISH PRODUCT TO DATABASE ---
   Future<void> _publishProduct() async {
     final name = nameController.text.trim();
     final price = double.tryParse(priceController.text.trim());
@@ -148,13 +127,11 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       return;
     }
 
+    // FIX: Changed selectedImage to selectedImageBytes
     if (selectedImageBytes == null) {
-      _showMessage('Please select a product photo.');
-      return;
-    }
-
-    if (selectedCategoryId == null || selectedUnitId == null) {
-      _showMessage('Please select a category and unit.');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one product photo.')),
+      );
       return;
     }
 
@@ -219,14 +196,29 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
       final newProductId = productResponse['id'];
 
-      // Save the image URL.
+      // B. Upload Image Bytes to Supabase Storage Bucket
+      // FIX: Uses selectedImageExtension saved during picker
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$selectedImageExtension';
+      final storagePath = '$userId/$fileName'; 
+
+      await supabase.storage.from('product_images').uploadBinary(
+            storagePath,
+            selectedImageBytes!,
+          );
+
+      // C. Get the public URL of the uploaded image
+      final String imageUrl = supabase.storage
+          .from('product_images')
+          .getPublicUrl(storagePath);
+
+      // D. Save the URL to the product_images database table
       await supabase.from('product_images').insert({
         'product_id': newProductId,
         'image_url': imageUrl,
-        'display_order': 1,
+        'display_order': 1
       });
 
-      // Save wholesale details when enabled.
+      // E. Insert into wholesale table if active
       if (isWholesaleActive) {
         await supabase.from('product_wholesale_details').insert({
           'product_id': newProductId,
@@ -235,10 +227,13 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         });
       }
 
-      if (!mounted) return;
-
-      _showMessage('Product published successfully!');
-      Navigator.pop(context, true);
+      // Success -> Go back to dashboard
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product published successfully!')),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
       debugPrint('Error publishing product: $e');
 
@@ -291,31 +286,17 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSectionLabel('PRODUCT IMAGES'),
-                  _buildImageUploaders(),
+                  _buildMultiImageUploader(),
                   const SizedBox(height: 20),
-                  _buildInputField(
-                    'PRODUCT NAME',
-                    'e.g. Organic Ampalaya (Bitter Gourd)',
-                    nameController,
-                  ),
-                  _buildInputField(
-                    'PRICE (₱)',
-                    '0.00',
-                    priceController,
-                    isNumber: true,
-                  ),
-                  _buildInputField(
-                    'STOCK QUANTITY',
-                    '0',
-                    stockController,
-                    isNumber: true,
-                  ),
-                  _buildDropdownField(
-                    'UNIT',
-                    selectedUnitId,
-                    unitsList,
-                    (value) => setState(() => selectedUnitId = value),
-                  ),
+                  
+                  _buildInputField('PRODUCT NAME', 'e.g. Organic Ampalaya (Bitter Gourd)', nameController),
+                  _buildInputField('PRICE (₱)', '0.00', priceController, isNumber: true),
+                  _buildInputField('STOCK QUANTITY', '0', stockController, isNumber: true),
+                  
+                  _buildDropdownField('UNIT', selectedUnitId, unitsList, (newValue) {
+                    setState(() => selectedUnitId = newValue);
+                  }),
+                  
                   const SizedBox(height: 10),
                   _buildWholesaleToggle(),
                   const SizedBox(height: 20),
@@ -333,24 +314,14 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                       isNumber: true,
                     ),
                   ],
-                  _buildDropdownField(
-                    'CATEGORY',
-                    selectedCategoryId,
-                    categoriesList,
-                    (value) => setState(() => selectedCategoryId = value),
-                  ),
-                  _buildInputField(
-                    'DESCRIPTION',
-                    'Describe your product...',
-                    descriptionController,
-                    maxLines: 4,
-                  ),
-                  _buildInputField(
-                    'DELIVERY DETAILS',
-                    'e.g. Ships within 1-2 days...',
-                    deliveryController,
-                    maxLines: 2,
-                  ),
+
+                  _buildDropdownField('CATEGORY', selectedCategoryId, categoriesList, (newValue) {
+                    setState(() => selectedCategoryId = newValue);
+                  }),
+                  
+                  _buildInputField('DESCRIPTION', 'Describe your product...', descriptionController, maxLines: 4),
+                  _buildInputField('DELIVERY DETAILS', 'e.g. Ships within 1-2 days...', deliveryController, maxLines: 2),
+                  
                   const SizedBox(height: 10),
                   _buildOrganicCheckbox(),
                   const SizedBox(height: 30),
@@ -364,15 +335,8 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.grey.shade700,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(text, style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -400,18 +364,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
               hintStyle: TextStyle(color: Colors.grey.shade400),
               filled: true,
               fillColor: inputFillColor,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: borderColor),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: primaryGreen),
-              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: primaryGreen)),
             ),
           ),
         ],
@@ -419,17 +374,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     );
   }
 
-  Widget _buildDropdownField(
-    String label,
-    int? selectedValue,
-    List<Map<String, dynamic>> items,
-    ValueChanged<int?> onChanged,
-  ) {
-    final validValue =
-        items.any((item) => (item['id'] as num).toInt() == selectedValue)
-        ? selectedValue
-        : null;
-
+  Widget _buildDropdownField(String label, int? selectedValue, List<Map<String, dynamic>> items, ValueChanged<int?> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -450,10 +395,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down),
                 items: items.map((item) {
-                  return DropdownMenuItem<int>(
-                    value: (item['id'] as num).toInt(),
-                    child: Text(item['name'].toString()),
-                  );
+                  return DropdownMenuItem<int>(value: item['id'], child: Text(item['name'].toString()));
                 }).toList(),
                 onChanged: onChanged,
               ),
@@ -467,24 +409,14 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
   Widget _buildImageUploaders() {
     return Row(
       children: [
-        _buildDashedBox(
-          Icons.camera_alt,
-          selectedImageBytes == null ? 'Add Photo' : 'Change Photo',
-          isMainPhoto: true,
-        ),
+        _buildDashedBox(Icons.camera_alt, 'Add Photo', isMainPhoto: true),
         const SizedBox(width: 12),
-        _buildDashedBox(Icons.add, 'Optional', isMainPhoto: false),
+        _buildDashedBox(Icons.add, '', isMainPhoto: false),
       ],
     );
   }
 
-  Widget _buildDashedBox(
-    IconData icon,
-    String text, {
-    required bool isMainPhoto,
-  }) {
-    final hasImage = isMainPhoto && selectedImageBytes != null;
-
+  Widget _buildDashedBox(IconData icon, String text, {required bool isMainPhoto}) {
     return GestureDetector(
       onTap: isMainPhoto ? _pickImage : null,
       child: Container(
@@ -493,30 +425,23 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         decoration: BoxDecoration(
           color: Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-          image: hasImage
-              ? DecorationImage(
-                  image: MemoryImage(selectedImageBytes!),
-                  fit: BoxFit.cover,
-                )
+          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+          // FIX: Use MemoryImage and selectedImageBytes
+          image: isMainPhoto && selectedImageBytes != null 
+              ? DecorationImage(image: MemoryImage(selectedImageBytes!), fit: BoxFit.cover)
               : null,
         ),
-        child: hasImage
-            ? null
+        // FIX: Check selectedImageBytes
+        child: (isMainPhoto && selectedImageBytes != null) 
+            ? null 
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, color: Colors.grey.shade400, size: 28),
                   if (text.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      text,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+                    Text(text, style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
+                  ]
                 ],
               ),
       ),
@@ -543,14 +468,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Wholesale pricing',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
+            const Text('Wholesale pricing', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
             const SizedBox(height: 4),
             Text(
               'Set minimums and bulk discounts',
@@ -607,23 +525,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
           elevation: 0,
         ),
         onPressed: isLoading ? null : _publishProduct,
-        child: isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                'Publish Product',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+        child: isLoading 
+            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            : const Text('Publish Product', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       ),
     );
   }
