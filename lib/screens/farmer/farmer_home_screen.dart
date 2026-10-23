@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'add_product_screen.dart';
+import 'edit_product_screen.dart'; // Adjust path if located in another folder
 
 const Color agriGreen = Color(0xFF2E7D32);
 const Color agriDarkGreen = Color(0xFF1B5E20);
@@ -197,23 +199,43 @@ class _FarmerHomeState extends State<FarmerHome> {
             const SizedBox(height: 14),
 
             // Prototype statistics
+            // Real-time statistics from Supabase
             Row(
               children: [
                 Expanded(
-                  child: _statCard(
-                    title: 'Products',
-                    value: '0',
-                    icon: Icons.inventory_2_outlined,
-                    color: const Color(0xFF2E7D32),
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: Supabase.instance.client
+                        .from('products')
+                        .stream(primaryKey: ['id'])
+                        .eq('seller_id', Supabase.instance.client.auth.currentUser?.id ?? ''),
+                    builder: (context, snapshot) {
+                      final productCount = snapshot.data?.length ?? 0;
+                      return _statCard(
+                        title: 'Products',
+                        value: '$productCount',
+                        icon: Icons.inventory_2_outlined,
+                        color: const Color(0xFF2E7D32),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _statCard(
-                    title: 'Pending Orders',
-                    value: '0',
-                    icon: Icons.pending_actions_outlined,
-                    color: const Color(0xFFEF8C22),
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: Supabase.instance.client
+                        .from('orders')
+                        .stream(primaryKey: ['id'])
+                        .eq('seller_id', Supabase.instance.client.auth.currentUser?.id ?? '')
+                        .eq('status', 'pending'),
+                    builder: (context, snapshot) {
+                      final pendingCount = snapshot.data?.length ?? 0;
+                      return _statCard(
+                        title: 'Pending Orders',
+                        value: '$pendingCount',
+                        icon: Icons.pending_actions_outlined,
+                        color: const Color(0xFFEF8C22),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -383,7 +405,11 @@ class _FarmerHomeState extends State<FarmerHome> {
   }
 
   // PRODUCTS
+  // PRODUCTS (Dynamic from Supabase)
+// PRODUCTS (Dynamic with Supabase)
   Widget _buildProducts() {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -397,7 +423,6 @@ class _FarmerHomeState extends State<FarmerHome> {
           style: TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 24),
-
         SizedBox(
           height: 48,
           child: ElevatedButton.icon(
@@ -410,25 +435,209 @@ class _FarmerHomeState extends State<FarmerHome> {
             ),
           ),
         ),
+        const SizedBox(height: 20),
 
-        const SizedBox(height: 40),
-        const Icon(Icons.inventory_2_outlined, size: 76, color: Colors.black26),
-        const SizedBox(height: 16),
-        const Text(
-          'No products yet',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Your product listings will appear here after you add them.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.black54, height: 1.5),
-        ),
+        if (currentUserId == null)
+          const Center(child: Text('User not logged in.'))
+        else
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .from('products')
+                .stream(primaryKey: ['id'])
+                .eq('seller_id', currentUserId)
+                .order('id', ascending: false),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 40.0),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 40.0),
+                  child: Center(
+                    child: Text(
+                      'Error: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                );
+              }
+
+              final products = snapshot.data ?? [];
+
+              if (products.isEmpty) {
+                return Column(
+                  children: const [
+                    SizedBox(height: 40),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 76,
+                      color: Colors.black26,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'No products yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Your product listings will appear here after you add them.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black54, height: 1.5),
+                    ),
+                  ],
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: products.length,
+                itemBuilder: (context, index) {
+                  final product = products[index];
+
+                  // Read stock from 'stock_quantity'
+                  final dynamic rawStock = product['stock_quantity'];
+                  final int stock = rawStock is int
+                      ? rawStock
+                      : (int.tryParse(rawStock?.toString() ?? '0') ?? 0);
+
+                  final String unit = product['unit']?.toString() ?? 'kg';
+                  final bool isOutOfStock = stock <= 0;
+                  final dynamic productId = product['id'];
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12.0),
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Row(
+                      children: [
+
+                        // Image fetching block
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FutureBuilder<List<dynamic>>(
+                            future: Supabase.instance.client
+                                .from('product_images')
+                                .select('image_url')
+                                .eq('product_id', productId),
+                            builder: (context, imageSnapshot) {
+                              String? imageUrl;
+                              if (imageSnapshot.hasData &&
+                                  imageSnapshot.data != null &&
+                                  imageSnapshot.data!.isNotEmpty) {
+                                imageUrl = imageSnapshot.data!.first['image_url'] as String?;
+                              }
+
+                              if (imageUrl != null && imageUrl.isNotEmpty) {
+                                return Image.network(
+                                  imageUrl,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey[200],
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              return Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey[200],
+                                child: const Icon(
+                                  Icons.image,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product['name']?.toString() ?? 'Unnamed Product',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '₱${product['price'] ?? 0}/$unit',
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isOutOfStock
+                                      ? const Color(0xFFFFE8E8)
+                                      : const Color(0xFFE8F5E9),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  isOutOfStock
+                                      ? 'Out of stock'
+                                      : '$stock in stock',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isOutOfStock
+                                        ? Colors.red
+                                        : agriGreen,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Line ~610 (After the Expanded widget ends):
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: agriGreen),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditProductScreen(product: product),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
       ],
     );
   }
-
   // ORDERS
   Widget _buildOrders() {
     return ListView(
