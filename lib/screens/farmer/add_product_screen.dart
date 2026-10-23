@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Helper class for multi-image storage
 class ImageData {
@@ -12,7 +12,7 @@ class ImageData {
 }
 
 class AddNewProductScreen extends StatefulWidget {
-  const AddNewProductScreen({Key? key}) : super(key: key);
+  const AddNewProductScreen({super.key});
 
   @override
   State<AddNewProductScreen> createState() => _AddNewProductScreenState();
@@ -20,17 +20,16 @@ class AddNewProductScreen extends StatefulWidget {
 
 class _AddNewProductScreenState extends State<AddNewProductScreen> {
   final supabase = Supabase.instance.client;
+  final ImagePicker _picker = ImagePicker();
 
-  // Form Controllers
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController priceController = TextEditingController();
-  final TextEditingController stockController = TextEditingController();
-  final TextEditingController wholesalePriceController = TextEditingController();
-  final TextEditingController wholesaleMinQtyController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
-  final TextEditingController deliveryController = TextEditingController();
+  final nameController = TextEditingController();
+  final priceController = TextEditingController();
+  final stockController = TextEditingController();
+  final wholesalePriceController = TextEditingController();
+  final wholesaleMinQtyController = TextEditingController();
+  final descriptionController = TextEditingController();
+  final deliveryController = TextEditingController();
 
-  // State Variables
   bool isWholesaleActive = false;
   bool isOrganic = true;
   bool isLoading = false;
@@ -38,15 +37,11 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
   // Multi-Image Picking Variables
   List<ImageData> selectedImages = [];
-  final ImagePicker _picker = ImagePicker();
-
-  // Dropdown Data
   List<Map<String, dynamic>> categoriesList = [];
   List<Map<String, dynamic>> unitsList = [];
   int? selectedCategoryId;
   int? selectedUnitId;
 
-  // Theme Colors
   final Color primaryGreen = const Color(0xFF1E713B);
   final Color inputFillColor = Colors.white;
   final Color borderColor = Colors.grey.shade300;
@@ -67,6 +62,13 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     descriptionController.dispose();
     deliveryController.dispose();
     super.dispose();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   // --- 1. PICK MULTIPLE IMAGES FROM GALLERY ---
@@ -95,6 +97,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       final categoriesData = await supabase.from('categories').select('id, name');
       final unitsData = await supabase.from('units').select('id, name');
 
+      if (!mounted) return;
       setState(() {
         categoriesList = List<Map<String, dynamic>>.from(categoriesData);
         unitsList = List<Map<String, dynamic>>.from(unitsData);
@@ -105,45 +108,73 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       });
     } catch (e) {
       debugPrint('Error fetching dropdowns: $e');
-      setState(() => isFetchingDropdowns = false);
+      if (!mounted) return;
+      setState(() {
+        isFetchingDropdowns = false;
+      });
+      _showMessage('Could not load categories and units.');
     }
   }
 
   // --- 3. PUBLISH PRODUCT & MULTIPLE IMAGES TO DATABASE ---
   Future<void> _publishProduct() async {
-    if (nameController.text.isEmpty || priceController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in the required fields.')),
-      );
+    final name = nameController.text.trim();
+    final price = double.tryParse(priceController.text.trim());
+    final stock = int.tryParse(stockController.text.trim());
+
+    if (name.isEmpty || price == null || price <= 0) {
+      _showMessage('Enter a product name and a valid price greater than 0.');
       return;
     }
 
     if (selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one product photo.')),
-      );
+      _showMessage('Please select at least one product photo.');
       return;
+    }
+
+    if (selectedCategoryId == null || selectedUnitId == null) {
+      _showMessage('Please select a category and unit.');
+      return;
+    }
+
+    double? wholesalePrice;
+    int? wholesaleMinQty;
+
+    if (isWholesaleActive) {
+      wholesalePrice = double.tryParse(wholesalePriceController.text.trim());
+      wholesaleMinQty = int.tryParse(wholesaleMinQtyController.text.trim());
+
+      if (wholesalePrice == null || wholesalePrice <= 0 || wholesaleMinQty == null || wholesaleMinQty <= 0) {
+        _showMessage('Enter a valid wholesale price and minimum quantity.');
+        return;
+      }
     }
 
     setState(() => isLoading = true);
 
     try {
       final userId = supabase.auth.currentUser?.id;
-      if (userId == null) throw Exception('User not logged in');
+      if (userId == null) {
+        throw Exception('You must be logged in to publish a product.');
+      }
 
-      // A. Insert into main products table
-      final productResponse = await supabase.from('products').insert({
-        'seller_id': userId,
-        'name': nameController.text,
-        'price': double.tryParse(priceController.text) ?? 0.0,
-        'stock_quantity': int.tryParse(stockController.text) ?? 0,
-        'unit_id': selectedUnitId,
-        'category_id': selectedCategoryId,
-        'description': descriptionController.text,
-        'delivery_details': deliveryController.text,
-        'is_organic': isOrganic,
-        'status': 'active'
-      }).select('id').single();
+      // A. Create the main product record
+      final productResponse = await supabase
+          .from('products')
+          .insert({
+            'seller_id': userId,
+            'name': name,
+            'price': price,
+            'stock_quantity': stock,
+            'unit_id': selectedUnitId,
+            'category_id': selectedCategoryId,
+            'description': descriptionController.text.trim(),
+            'delivery_details': deliveryController.text.trim(),
+            'is_organic': isOrganic,
+            'status': 'active',
+          })
+          .select('id')
+          .single();
 
       final newProductId = productResponse['id'];
 
@@ -155,9 +186,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
         // Upload Binary Bytes
         await supabase.storage.from('product_images').uploadBinary(
-          storagePath,
-          img.bytes,
-        );
+              storagePath,
+              img.bytes,
+            );
 
         // Get Public URL
         final String imageUrl = supabase.storage
@@ -176,8 +207,8 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       if (isWholesaleActive) {
         await supabase.from('product_wholesale_details').insert({
           'product_id': newProductId,
-          'wholesale_price': double.tryParse(wholesalePriceController.text) ?? 0.0,
-          'minimum_quantity': int.tryParse(wholesaleMinQtyController.text) ?? 0,
+          'wholesale_price': wholesalePrice,
+          'minimum_quantity': wholesaleMinQty,
         });
       }
 
@@ -188,18 +219,15 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint('Error inserting product: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
+      debugPrint('Error publishing product: $e');
+      _showMessage('Could not publish product: $e');
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
-  // --- UI BUILDING ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -213,14 +241,17 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         ),
         title: const Text(
           'Add New Product',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
-        centerTitle: false,
       ),
       body: isFetchingDropdowns
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -228,21 +259,22 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                   _buildMultiImageUploader(),
                   const SizedBox(height: 20),
                   _buildInputField('PRODUCT NAME', 'e.g. Organic Ampalaya (Bitter Gourd)', nameController),
-                  _buildInputField('PRICE (₱)', '0.00', priceController, isNumber: true),
+                  _buildInputField('PRICE (P)', '0.00', priceController, isNumber: true),
                   _buildInputField('STOCK QUANTITY', '0', stockController, isNumber: true),
                   _buildDropdownField('UNIT', selectedUnitId, unitsList, (newValue) {
                     setState(() => selectedUnitId = newValue);
                   }),
-                  const SizedBox(height: 10),
-                  _buildWholesaleToggle(),
-                  const SizedBox(height: 20),
-                  if (isWholesaleActive) ...[
-                    _buildInputField('WHOLESALE PRICE (₱)', '0.00', wholesalePriceController, isNumber: true),
-                    _buildInputField('WHOLESALE MINIMUM QUANTITY', 'e.g. 10', wholesaleMinQtyController, isNumber: true),
-                  ],
                   _buildDropdownField('CATEGORY', selectedCategoryId, categoriesList, (newValue) {
                     setState(() => selectedCategoryId = newValue);
                   }),
+                  const SizedBox(height: 10),
+                  _buildWholesaleToggle(),
+                  if (isWholesaleActive) ...[
+                    const SizedBox(height: 20),
+                    _buildInputField('WHOLESALE PRICE (P)', '0.00', wholesalePriceController, isNumber: true),
+                    _buildInputField('WHOLESALE MINIMUM QUANTITY', 'e.g. 10', wholesaleMinQtyController, isNumber: true),
+                  ],
+                  const SizedBox(height: 20),
                   _buildInputField('DESCRIPTION', 'Describe your product...', descriptionController, maxLines: 4),
                   _buildInputField('DELIVERY DETAILS', 'e.g. Ships within 1-2 days...', deliveryController, maxLines: 2),
                   const SizedBox(height: 10),
@@ -278,14 +310,14 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     int maxLines = 1,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionLabel(label),
           TextFormField(
             controller: controller,
-            keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+            keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
             maxLines: maxLines,
             decoration: InputDecoration(
               hintText: hint,
@@ -314,8 +346,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     List<Map<String, dynamic>> items,
     ValueChanged<int?> onChanged,
   ) {
+    final validValue = items.any((item) => item['id'] == selectedValue) ? selectedValue : null;
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -329,12 +363,13 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
-                value: selectedValue,
+                value: validValue,
+                hint: Text('Select $label'),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down),
                 items: items.map((item) {
                   return DropdownMenuItem<int>(
-                    value: item['id'],
+                    value: item['id'] as int,
                     child: Text(item['name'].toString()),
                   );
                 }).toList(),
@@ -388,7 +423,6 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
           }
 
           final img = selectedImages[index];
-
           return Container(
             width: 90,
             height: 90,
@@ -450,14 +484,18 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
   Widget _buildWholesaleToggle() {
     return GestureDetector(
-      onTap: () => setState(() => isWholesaleActive = !isWholesaleActive),
+      onTap: () {
+        setState(() => isWholesaleActive = !isWholesaleActive);
+      },
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.45,
+        width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isWholesaleActive ? primaryGreen.withOpacity(0.1) : inputFillColor,
+          color: isWholesaleActive ? primaryGreen.withValues(alpha: 0.1) : inputFillColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isWholesaleActive ? primaryGreen : borderColor),
+          border: Border.all(
+            color: isWholesaleActive ? primaryGreen : borderColor,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,7 +521,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isOrganic ? primaryGreen.withOpacity(0.1) : inputFillColor,
+          color: isOrganic ? primaryGreen.withValues(alpha: 0.1) : inputFillColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isOrganic ? primaryGreen : borderColor),
         ),
@@ -514,7 +552,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryGreen,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           elevation: 0,
         ),
         onPressed: isLoading ? null : _publishProduct,
