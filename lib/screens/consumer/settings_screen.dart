@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'address_screen.dart';
 import '../../providers/address_provider.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -54,13 +55,30 @@ class SettingsScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back to Profile',
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            }
+          },
+        ),
+      ),
+
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // ACCOUNT SECTION
           _buildSectionTitle('Account'),
-
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -75,7 +93,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
 
-                // DELIVERY ADDRESS BUTTON
+                // DELIVERY ADDRESS
                 _buildSettingsTile(
                   icon: Icons.location_on_outlined,
                   title: 'Delivery Address',
@@ -92,8 +110,8 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   onTap: () => _openAddressScreen(context),
                 ),
-
                 const Divider(height: 1),
+
                 _buildSettingsTile(
                   icon: Icons.lock_outline,
                   title: 'Change Password',
@@ -110,7 +128,6 @@ class SettingsScreen extends StatelessWidget {
 
           // PREFERENCES SECTION
           _buildSectionTitle('Preferences'),
-
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -140,7 +157,6 @@ class SettingsScreen extends StatelessWidget {
 
           // SUPPORT SECTION
           _buildSectionTitle('Support'),
-
           Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -173,7 +189,7 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // LOGOUT BUTTON
+          // LOG OUT
           OutlinedButton.icon(
             onPressed: () => _showLogoutDialog(context),
             icon: const Icon(Icons.logout),
@@ -186,6 +202,7 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
+
           Center(
             child: Text(
               'AgriMarket v1.0.0',

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/address_provider.dart';
 import 'checkout_delivery_screen.dart';
 import 'saved_addresses_screen.dart';
 
 class CheckoutAddressScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
 
-  const CheckoutAddressScreen({
-    super.key,
-    required this.checkoutItems,
-  });
+  const CheckoutAddressScreen({super.key, required this.checkoutItems});
 
   @override
   State<CheckoutAddressScreen> createState() => _CheckoutAddressScreenState();
@@ -24,13 +24,44 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
   final TextEditingController _notesController = TextEditingController();
 
-  Map<String, dynamic> _selectedAddress = {
-    'name': 'Juan dela Cruz',
-    'phone': '09171234567',
-    'address':
-        '123 Maginhawa St., Teachers Village, Diliman, Quezon City, Metro Manila 1101',
-    'note': '"Leave at the gate"',
-  };
+  Map<String, dynamic> _selectedAddress = {};
+
+  bool _isLoadingAddress = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSavedAddress();
+    });
+  }
+
+  Future<void> _loadSavedAddress() async {
+    try {
+      final addressProvider = context.read<AddressProvider>();
+
+      await addressProvider.loadAddress();
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAddress = addressProvider.hasAddress
+            ? Map<String, dynamic>.from(addressProvider.addressMap)
+            : {};
+
+        _isLoadingAddress = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingAddress = false;
+      });
+
+      _showMessage('Unable to load your saved address. Please try again.');
+    }
+  }
 
   @override
   void dispose() {
@@ -55,18 +86,70 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     final selected = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => SavedAddressesScreen(
-          selectedAddress: _selectedAddress,
-        ),
+        builder: (context) =>
+            SavedAddressesScreen(selectedAddress: _selectedAddress),
       ),
     );
 
+    if (!mounted) return;
+
     if (selected != null) {
       setState(() {
-        _selectedAddress = selected;
+        _selectedAddress = {
+          ...selected,
+          'name': selected['name'] ?? selected['full_name'] ?? '',
+          'phone': selected['phone'] ?? selected['mobile_number'] ?? '',
+          'address': selected['address'] ?? selected['address_line'] ?? '',
+          'note': selected['note'] ?? selected['delivery_notes'] ?? '',
+        };
       });
       _showMessage('Delivery address updated');
     }
+  }
+
+  void _continueToDelivery() {
+    if (_selectedAddress.isEmpty) {
+      _showMessage('Please add a delivery address in Settings first.');
+      return;
+    }
+
+    final name =
+        (_selectedAddress['name'] ?? _selectedAddress['full_name'] ?? '')
+            .toString()
+            .trim();
+
+    final phone =
+        (_selectedAddress['phone'] ?? _selectedAddress['mobile_number'] ?? '')
+            .toString()
+            .trim();
+
+    final address =
+        (_selectedAddress['address'] ?? _selectedAddress['address_line'] ?? '')
+            .toString()
+            .trim();
+
+    if (name.isEmpty || phone.isEmpty || address.isEmpty) {
+      _showMessage('Please complete your delivery address.');
+      return;
+    }
+
+    final addressForCheckout = {
+      ..._selectedAddress,
+      'name': name,
+      'phone': phone,
+      'address': address,
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CheckoutDeliveryScreen(
+          checkoutItems: widget.checkoutItems,
+          selectedAddress: addressForCheckout,
+          deliveryNote: _notesController.text,
+        ),
+      ),
+    );
   }
 
   @override
@@ -145,200 +228,219 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
               // ================= CONTENT =================
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            color: primaryGreen,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delivery Address',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: ink,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Default Address Card
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF22C55E),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
+                child: _isLoadingAddress
+                    ? const Center(
+                        child: CircularProgressIndicator(color: primaryGreen),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  color: primaryGreen,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delivery Address',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: ink,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Default Address Card
                             Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              color: const Color(0xFF16A34A),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'Default Address',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  InkWell(
-                                    onTap: _openSavedAddresses,
-                                    child: const Text(
-                                      'Change',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: Colors.white,
-                                      ),
-                                    ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFF22C55E),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                            ),
-
-                            Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFF0FDF4),
-                                      shape: BoxShape.circle,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
                                     ),
-                                    child: const Icon(
-                                      Icons.location_on_outlined,
-                                      color: primaryGreen,
-                                      size: 18,
+                                    color: const Color(0xFF16A34A),
+                                    child: Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Text(
+                                          'Default Address',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        InkWell(
+                                          onTap: _openSavedAddresses,
+                                          child: const Text(
+                                            'Change',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
+
+                                  Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Row(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          _selectedAddress['name'] ?? '',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: ink,
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFF0FDF4),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(
+                                            Icons.location_on_outlined,
+                                            color: primaryGreen,
+                                            size: 18,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          _selectedAddress['phone'] ?? '',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: mutedText,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                _selectedAddress['name'] ??
+                                                    _selectedAddress['full_name'] ??
+                                                    '',
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: ink,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                _selectedAddress['phone'] ??
+                                                    _selectedAddress['mobile_number'] ??
+                                                    '',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: mutedText,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                _selectedAddress['address'] ??
+                                                    _selectedAddress['address_line'] ??
+                                                    '',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: ink,
+                                                  height: 1.3,
+                                                ),
+                                              ),
+                                              if ((_selectedAddress['note'] ??
+                                                      _selectedAddress['delivery_notes'] ??
+                                                      '')
+                                                  .toString()
+                                                  .isNotEmpty) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _selectedAddress['note'] ??
+                                                      _selectedAddress['delivery_notes'],
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: mutedText,
+                                                    fontStyle: FontStyle.italic,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          _selectedAddress['address'] ?? '',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: ink,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                        if ((_selectedAddress['note'] ?? '')
-                                            .toString()
-                                            .isNotEmpty) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _selectedAddress['note'],
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              color: mutedText,
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                          ),
-                                        ],
                                       ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+
+                            const SizedBox(height: 24),
+
+                            const Text(
+                              'DELIVERY NOTES (OPTIONAL)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: mutedText,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _notesController,
+                                maxLines: 3,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: ink,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. Leave at the gate, call before delivery',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFFA0AEC0),
+                                    fontSize: 12,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.all(12),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-
-                      const SizedBox(height: 24),
-
-                      const Text(
-                        'DELIVERY NOTES (OPTIONAL)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: mutedText,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: TextField(
-                          controller: _notesController,
-                          maxLines: 3,
-                          style: const TextStyle(fontSize: 13, color: ink),
-                          decoration: const InputDecoration(
-                            hintText:
-                                'e.g. Leave at the gate, call before delivery',
-                            hintStyle: TextStyle(
-                              color: Color(0xFFA0AEC0),
-                              fontSize: 12,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.all(12),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
 
               // ================= BOTTOM BUTTON =================
@@ -358,18 +460,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CheckoutDeliveryScreen(
-                            checkoutItems: widget.checkoutItems,
-                            selectedAddress: _selectedAddress,
-                            deliveryNote: _notesController.text,
-                          ),
-                        ),
-                      );
-                    },
+                    onPressed: _isLoadingAddress ? null : _continueToDelivery,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: darkGreen,
                       elevation: 0,
@@ -406,8 +497,11 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 
-  Widget _buildStepItem(int stepNumber, String title,
-      {required int currentStep}) {
+  Widget _buildStepItem(
+    int stepNumber,
+    String title, {
+    required int currentStep,
+  }) {
     final bool isDone = stepNumber < currentStep;
     final bool isActive = stepNumber == currentStep;
 
