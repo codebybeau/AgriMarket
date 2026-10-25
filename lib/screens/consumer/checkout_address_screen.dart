@@ -25,7 +25,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
   final TextEditingController _notesController = TextEditingController();
 
   Map<String, dynamic> _selectedAddress = {};
-
   bool _isLoadingAddress = true;
 
   @override
@@ -37,29 +36,43 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     });
   }
 
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      ...address,
+      'name': address['name'] ?? address['full_name'] ?? '',
+      'phone': address['phone'] ?? address['mobile_number'] ?? '',
+      'address': address['address'] ?? address['address_line'] ?? '',
+      'note': address['note'] ?? address['delivery_notes'] ?? '',
+    };
+  }
+
   Future<void> _loadSavedAddress() async {
     try {
-      final addressProvider = context.read<AddressProvider>();
-
-      await addressProvider.loadAddress();
+      final provider = context.read<AddressProvider>();
+      await provider.loadAddress();
 
       if (!mounted) return;
 
-      setState(() {
-        _selectedAddress = addressProvider.hasAddress
-            ? Map<String, dynamic>.from(addressProvider.addressMap)
-            : {};
+      final defaultAddress = provider.defaultAddress;
 
+      setState(() {
+        _selectedAddress = defaultAddress == null
+            ? {}
+            : _normalizeAddress(Map<String, dynamic>.from(defaultAddress));
         _isLoadingAddress = false;
       });
-    } catch (e) {
+
+      if (provider.errorMessage != null) {
+        _showMessage(provider.errorMessage!);
+      }
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
         _isLoadingAddress = false;
       });
 
-      _showMessage('Unable to load your saved address. Please try again.');
+      _showMessage('Unable to load your saved addresses. Please try again.');
     }
   }
 
@@ -82,51 +95,34 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
       );
   }
 
-  void _openSavedAddresses() async {
+  Future<void> _openSavedAddresses() async {
     final selected = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            SavedAddressesScreen(selectedAddress: _selectedAddress),
+        builder: (_) => SavedAddressesScreen(
+          selectedAddress: _selectedAddress.isEmpty ? null : _selectedAddress,
+        ),
       ),
     );
 
-    if (!mounted) return;
+    if (!mounted || selected == null) return;
 
-    if (selected != null) {
-      setState(() {
-        _selectedAddress = {
-          ...selected,
-          'name': selected['name'] ?? selected['full_name'] ?? '',
-          'phone': selected['phone'] ?? selected['mobile_number'] ?? '',
-          'address': selected['address'] ?? selected['address_line'] ?? '',
-          'note': selected['note'] ?? selected['delivery_notes'] ?? '',
-        };
-      });
-      _showMessage('Delivery address updated');
-    }
+    setState(() {
+      _selectedAddress = _normalizeAddress(selected);
+    });
+
+    _showMessage('Delivery address updated');
   }
 
   void _continueToDelivery() {
     if (_selectedAddress.isEmpty) {
-      _showMessage('Please add a delivery address in Settings first.');
+      _showMessage('Please add a delivery address first.');
       return;
     }
 
-    final name =
-        (_selectedAddress['name'] ?? _selectedAddress['full_name'] ?? '')
-            .toString()
-            .trim();
-
-    final phone =
-        (_selectedAddress['phone'] ?? _selectedAddress['mobile_number'] ?? '')
-            .toString()
-            .trim();
-
-    final address =
-        (_selectedAddress['address'] ?? _selectedAddress['address_line'] ?? '')
-            .toString()
-            .trim();
+    final name = (_selectedAddress['name'] ?? '').toString().trim();
+    final phone = (_selectedAddress['phone'] ?? '').toString().trim();
+    final address = (_selectedAddress['address'] ?? '').toString().trim();
 
     if (name.isEmpty || phone.isEmpty || address.isEmpty) {
       _showMessage('Please complete your delivery address.');
@@ -143,10 +139,10 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckoutDeliveryScreen(
+        builder: (_) => CheckoutDeliveryScreen(
           checkoutItems: widget.checkoutItems,
           selectedAddress: addressForCheckout,
-          deliveryNote: _notesController.text,
+          deliveryNote: _notesController.text.trim(),
         ),
       ),
     );
@@ -167,7 +163,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
           top: false,
           child: Column(
             children: [
-              // ================= HEADER =================
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -210,7 +205,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildStepItem(1, 'Address', currentStep: 1),
                           _buildStepConnector(),
@@ -225,8 +219,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                   ],
                 ),
               ),
-
-              // ================= CONTENT =================
               Expanded(
                 child: _isLoadingAddress
                     ? const Center(
@@ -256,152 +248,11 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
-
-                            // Default Address Card
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFF22C55E),
-                                  width: 1.2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.03),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    color: const Color(0xFF16A34A),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Text(
-                                          'Default Address',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        InkWell(
-                                          onTap: _openSavedAddresses,
-                                          child: const Text(
-                                            'Change',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                              decorationColor: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  Padding(
-                                    padding: const EdgeInsets.all(14),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFF0FDF4),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.location_on_outlined,
-                                            color: primaryGreen,
-                                            size: 18,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                _selectedAddress['name'] ??
-                                                    _selectedAddress['full_name'] ??
-                                                    '',
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: ink,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                _selectedAddress['phone'] ??
-                                                    _selectedAddress['mobile_number'] ??
-                                                    '',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: mutedText,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              Text(
-                                                _selectedAddress['address'] ??
-                                                    _selectedAddress['address_line'] ??
-                                                    '',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: ink,
-                                                  height: 1.3,
-                                                ),
-                                              ),
-                                              if ((_selectedAddress['note'] ??
-                                                      _selectedAddress['delivery_notes'] ??
-                                                      '')
-                                                  .toString()
-                                                  .isNotEmpty) ...[
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  _selectedAddress['note'] ??
-                                                      _selectedAddress['delivery_notes'],
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: mutedText,
-                                                    fontStyle: FontStyle.italic,
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
+                            if (_selectedAddress.isEmpty)
+                              _buildNoAddressCard()
+                            else
+                              _buildSelectedAddressCard(),
                             const SizedBox(height: 24),
-
                             const Text(
                               'DELIVERY NOTES (OPTIONAL)',
                               style: TextStyle(
@@ -442,8 +293,6 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
                         ),
                       ),
               ),
-
-              // ================= BOTTOM BUTTON =================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -497,13 +346,169 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     );
   }
 
+  Widget _buildNoAddressCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.location_off_outlined, color: mutedText, size: 36),
+          const SizedBox(height: 8),
+          const Text(
+            'No saved delivery address',
+            style: TextStyle(color: ink, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Add an address to continue with your order.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: mutedText, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _openSavedAddresses,
+            icon: const Icon(Icons.add_location_alt_outlined),
+            label: const Text('Choose or add address'),
+            style: OutlinedButton.styleFrom(foregroundColor: primaryGreen),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedAddressCard() {
+    final name = (_selectedAddress['name'] ?? '').toString();
+    final phone = (_selectedAddress['phone'] ?? '').toString();
+    final address = (_selectedAddress['address'] ?? '').toString();
+    final note = (_selectedAddress['note'] ?? '').toString();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF22C55E), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            color: const Color(0xFF16A34A),
+            child: Row(
+              children: [
+                const Icon(Icons.check, color: Colors.white, size: 14),
+                const SizedBox(width: 4),
+                const Text(
+                  'Selected Address',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: _openSavedAddresses,
+                  child: const Text(
+                    'Change',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF0FDF4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.location_on_outlined,
+                    color: primaryGreen,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        phone,
+                        style: const TextStyle(fontSize: 12, color: mutedText),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        address,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ink,
+                          height: 1.3,
+                        ),
+                      ),
+                      if (note.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          note,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: mutedText,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStepItem(
     int stepNumber,
     String title, {
     required int currentStep,
   }) {
-    final bool isDone = stepNumber < currentStep;
-    final bool isActive = stepNumber == currentStep;
+    final isDone = stepNumber < currentStep;
+    final isActive = stepNumber == currentStep;
 
     return Column(
       children: [

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -282,10 +283,8 @@ class _HomeScreenState extends State<HomeScreen> {
           location: location,
           rating: rating,
           reviewCount: reviewCount,
-          avatarUrl: avatarUrl ??
-              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          bannerUrl: bannerUrl ??
-              'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600',
+          avatarUrl: avatarUrl ?? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          bannerUrl: bannerUrl ?? 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600',
         ),
       ),
     );
@@ -334,20 +333,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             sliver: SliverGrid(
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 12,
-                                crossAxisSpacing: 12,
-                                mainAxisExtent: 250,
-                              ),
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    mainAxisExtent: 250,
+                                  ),
                               delegate: SliverChildBuilderDelegate(
                                 (context, index) => _buildRecommendedCard(
-                                    _recommendedProducts[index]),
+                                  _recommendedProducts[index],
+                                ),
                                 childCount: _recommendedProducts.length,
                               ),
                             ),
                           ),
 
-                          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                          const SliverToBoxAdapter(
+                            child: SizedBox(height: 120),
+                          ),
                         ],
                       ),
                     ),
@@ -408,8 +410,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 160,
                             color: primaryGreen,
                             child: const Center(
-                              child: Icon(Icons.eco,
-                                  size: 60, color: Colors.white),
+                              child: Icon(
+                                Icons.eco,
+                                size: 60,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -628,11 +633,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 18,
-                    color: ink,
-                  ),
+                  child: const Icon(Icons.close, size: 18, color: ink),
                 ),
               ),
             ),
@@ -678,21 +679,14 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.search,
-                    color: Color(0xFF88968C),
-                    size: 20,
-                  ),
+                  const Icon(Icons.search, color: Color(0xFF88968C), size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
                       onChanged: (v) => setState(() => _searchQuery = v),
                       textInputAction: TextInputAction.search,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: ink,
-                      ),
+                      style: const TextStyle(fontSize: 13, color: ink),
                       decoration: const InputDecoration(
                         hintText: 'Organic Fertilizers & Seeds',
                         hintStyle: TextStyle(
@@ -727,7 +721,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Cart Icon with Badge
           _headerIcon(
             icon: Icons.shopping_cart_outlined,
-            badgeText: '97',
+            badgeText: '4',
             onTap: () => _goToPage(const CartScreen()),
           ),
 
@@ -761,11 +755,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(4),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
         ),
         if (badgeText.isNotEmpty)
@@ -779,10 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.white, width: 1.5),
               ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 14,
-              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
               child: Text(
                 badgeText,
                 textAlign: TextAlign.center,
@@ -823,9 +810,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Image.network(
                         banner['image'],
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFF2B8A4A),
-                        ),
+                        errorBuilder: (_, _, _) =>
+                            Container(color: const Color(0xFF2B8A4A)),
                       ),
                       Container(color: primaryGreen.withValues(alpha: 0.22)),
                       Padding(
@@ -1058,8 +1044,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => Container(
                                 color: const Color(0xFFE8F0E7),
-                                child: const Icon(Icons.store,
-                                    color: primaryGreen, size: 24),
+                                child: const Icon(
+                                  Icons.store,
+                                  color: primaryGreen,
+                                  size: 24,
+                                ),
                               ),
                             ),
                           ),
@@ -1282,8 +1271,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => Container(
                                 color: const Color(0xFFE8F0E7),
-                                child: const Icon(Icons.eco,
-                                    color: primaryGreen, size: 28),
+                                child: const Icon(
+                                  Icons.eco,
+                                  color: primaryGreen,
+                                  size: 28,
+                                ),
                               ),
                             ),
                           ),
@@ -1350,7 +1342,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   TextSpan(
-                                    text: '${(product['price'] as num).toInt()}',
+                                    text:
+                                        '${(product['price'] as num).toInt()}',
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -1528,7 +1521,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               farmer['location'],
                               style: const TextStyle(
-                                  fontSize: 9, color: mutedText),
+                                fontSize: 9,
+                                color: mutedText,
+                              ),
                             ),
                           ],
                         ),
@@ -1547,7 +1542,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               '• ${farmer['products']}',
                               style: const TextStyle(
-                                  fontSize: 9, color: mutedText),
+                                fontSize: 9,
+                                color: mutedText,
+                              ),
                             ),
                           ],
                         ),
@@ -1658,8 +1655,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
                       color: const Color(0xFFE8F0E7),
-                      child: const Icon(Icons.eco,
-                          color: primaryGreen, size: 32),
+                      child: const Icon(
+                        Icons.eco,
+                        color: primaryGreen,
+                        size: 32,
+                      ),
                     ),
                   ),
                 ),
@@ -1738,15 +1738,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             '${product['rating']} (${product['reviews']})',
                             style: const TextStyle(
-                                fontSize: 8, color: mutedText),
+                              fontSize: 8,
+                              color: mutedText,
+                            ),
                           ),
                         ],
                       ),
                       if (product['sold'] != null)
                         Text(
                           product['sold'],
-                          style:
-                              const TextStyle(fontSize: 8, color: mutedText),
+                          style: const TextStyle(fontSize: 8, color: mutedText),
                         ),
                     ],
                   ),
