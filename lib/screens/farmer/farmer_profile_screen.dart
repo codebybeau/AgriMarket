@@ -187,20 +187,29 @@ class FarmerProfileScreen extends StatelessWidget {
                     title: 'Farm Name',
                     value: farmName,
                   ),
-
                   const SizedBox(height: 24),
 
-                  // Consumer dashboard button
-                  OutlinedButton.icon(
-                    onPressed: () => _goToConsumerDashboard(context),
-                    icon: const Icon(Icons.shopping_bag_outlined),
-                    label: const Text('Back to Consumer Dashboard'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryColor,
-                      side: const BorderSide(color: primaryColor),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('Back to Consumer Home button tapped');
+                        _goToConsumerDashboard(context);
+                      },
+                      icon: const Icon(Icons.shopping_bag_outlined),
+                      label: const Text('Back to Consumer Home'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 56),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
