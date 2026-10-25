@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'orderplaced_screen.dart'; // ISINAMA ANG IMPORT NA ITO
 
 class CheckoutSummaryScreen extends StatefulWidget {
@@ -57,9 +58,8 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (context) => const OrderPlacedScreen(
-          orderReference: 'ORD-2024-285',
-        ),
+        builder: (context) =>
+            const OrderPlacedScreen(orderReference: 'ORD-2024-285'),
       ),
       (route) => route.isFirst,
     );
@@ -326,8 +326,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                                   child: Row(
                                     children: [
                                       ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                         child: Image.network(
                                           item['image'],
                                           width: 44,
@@ -548,7 +547,11 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
     );
   }
 
-  Widget _buildStepItem(int stepNumber, String title, {required int currentStep}) {
+  Widget _buildStepItem(
+    int stepNumber,
+    String title, {
+    required int currentStep,
+  }) {
     final bool isDone = stepNumber < currentStep;
     final bool isActive = stepNumber == currentStep;
 

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/address_provider.dart';
 import 'add_address_screen.dart';
+import 'edit_address_screen.dart';
 
 class SavedAddressesScreen extends StatefulWidget {
   final Map<String, dynamic>? selectedAddress;
 
-  const SavedAddressesScreen({
-    super.key,
-    this.selectedAddress,
-  });
+  const SavedAddressesScreen({super.key, this.selectedAddress});
 
   @override
   State<SavedAddressesScreen> createState() => _SavedAddressesScreenState();
@@ -21,36 +22,84 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
-  late List<Map<String, dynamic>> _addresses;
-  late Map<String, dynamic> _currentSelected;
+  Map<String, dynamic>? _currentSelected;
+  bool _isLoading = true;
+  bool _isWorking = false;
 
   @override
   void initState() {
     super.initState();
-    _addresses = [
-      {
-        'id': '1',
-        'name': 'Juan dela Cruz',
-        'phone': '09171234567',
-        'address':
-            '123 Maginhawa St., Teachers Village, Diliman, Quezon City, Metro Manila 1101',
-        'note': '"Leave at the gate"',
-        'isDefault': true,
-      },
-      {
-        'id': '2',
-        'name': 'Juan dela Cruz',
-        'phone': '09171234567',
-        'address': 'Unit 4B Aguinaldo Highway, Palico, Imus, Cavite 4103',
-        'note': '',
-        'isDefault': false,
-      },
-    ];
+    _currentSelected = widget.selectedAddress == null
+        ? null
+        : Map<String, dynamic>.from(widget.selectedAddress!);
 
-    _currentSelected = widget.selectedAddress ?? _addresses.first;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAddresses();
+    });
+  }
+
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      ...address,
+      'name': address['name'] ?? address['full_name'] ?? '',
+      'phone': address['phone'] ?? address['mobile_number'] ?? '',
+      'address': address['address'] ?? address['address_line'] ?? '',
+      'note': address['note'] ?? address['delivery_notes'] ?? '',
+      'isDefault': address['isDefault'] ?? address['is_default'] == true,
+    };
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final provider = context.read<AddressProvider>();
+      await provider.loadAddress();
+
+      if (!mounted) return;
+
+      final addresses = provider.addresses;
+
+      setState(() {
+        if (_currentSelected != null) {
+          final selectedId = _currentSelected!['id'];
+
+          final matchingAddress = addresses.where(
+            (address) => address['id'] == selectedId,
+          );
+
+          if (matchingAddress.isNotEmpty) {
+            _currentSelected = _normalizeAddress(
+              Map<String, dynamic>.from(matchingAddress.first),
+            );
+          }
+        }
+
+        // If the previous selection no longer exists, select the default.
+        if (_currentSelected == null ||
+            !addresses.any(
+              (address) => address['id'] == _currentSelected!['id'],
+            )) {
+          final defaultAddress = provider.defaultAddress;
+          _currentSelected = defaultAddress == null
+              ? null
+              : _normalizeAddress(Map<String, dynamic>.from(defaultAddress));
+        }
+
+        _isLoading = false;
+      });
+
+      if (provider.errorMessage != null && mounted) {
+        _showMessage(provider.errorMessage!);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _showMessage('Could not load saved addresses.');
+    }
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -63,48 +112,136 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
       );
   }
 
-  void _setAsDefault(Map<String, dynamic> targetAddress) {
+  void _selectAddress(Map<String, dynamic> address) {
     setState(() {
-      for (var addr in _addresses) {
-        addr['isDefault'] = (addr['id'] == targetAddress['id']);
-      }
+      _currentSelected = _normalizeAddress(address);
     });
-    _showMessage('Default address updated');
+
+    // Return the selected address to the checkout screen.
+    Navigator.pop(context, _normalizeAddress(address));
   }
 
-  void _deleteAddress(Map<String, dynamic> targetAddress) {
-    setState(() {
-      _addresses.removeWhere((addr) => addr['id'] == targetAddress['id']);
-    });
-    _showMessage('Address removed');
+  Future<void> _openAddAddress() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+    );
+
+    if (!mounted) return;
+
+    // Refresh from Supabase after the add screen closes.
+    await _loadAddresses();
   }
 
-  void _openAddOrEditAddress({Map<String, dynamic>? addressToEdit}) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+  Future<void> _openEditAddress(Map<String, dynamic> address) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AddAddressScreen(addressToEdit: addressToEdit),
+        builder: (_) =>
+            EditAddressScreen(address: Map<String, dynamic>.from(address)),
       ),
     );
 
-    if (result != null) {
-      setState(() {
-        if (addressToEdit != null) {
-          final idx =
-              _addresses.indexWhere((a) => a['id'] == addressToEdit['id']);
-          if (idx != -1) {
-            _addresses[idx] = result;
-          }
-        } else {
-          _addresses.add(result);
+    if (!mounted) return;
+
+    // Refresh from Supabase after editing.
+    await _loadAddresses();
+  }
+
+  Future<void> _setAsDefault(Map<String, dynamic> address) async {
+    final id = address['id'];
+
+    if (id is! int) {
+      _showMessage('This address has an invalid ID.');
+      return;
+    }
+
+    setState(() => _isWorking = true);
+
+    try {
+      final success = await context.read<AddressProvider>().setDefaultAddress(
+        id,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        await _loadAddresses();
+        _showMessage('Default address updated.');
+      } else {
+        _showMessage(
+          context.read<AddressProvider>().errorMessage ??
+              'Could not update the default address.',
+        );
+      }
+    } catch (_) {
+      _showMessage('Could not update the default address.');
+    } finally {
+      if (mounted) setState(() => _isWorking = false);
+    }
+  }
+
+  Future<void> _deleteAddress(Map<String, dynamic> address) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete address?'),
+        content: const Text(
+          'Are you sure you want to delete this saved address?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final id = address['id'];
+
+    if (id is! int) {
+      _showMessage('This address has an invalid ID.');
+      return;
+    }
+
+    setState(() => _isWorking = true);
+
+    try {
+      final success = await context.read<AddressProvider>().deleteAddress(id);
+
+      if (!mounted) return;
+
+      if (success) {
+        if (_currentSelected?['id'] == id) {
+          _currentSelected = null;
         }
-      });
-      _showMessage('Address saved successfully');
+
+        await _loadAddresses();
+        _showMessage('Address deleted.');
+      } else {
+        _showMessage(
+          context.read<AddressProvider>().errorMessage ??
+              'Could not delete the address.',
+        );
+      }
+    } catch (_) {
+      _showMessage('Could not delete the address.');
+    } finally {
+      if (mounted) setState(() => _isWorking = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final addresses = context.watch<AddressProvider>().addresses;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
@@ -118,7 +255,6 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           top: false,
           child: Column(
             children: [
-              // ================= HEADER =================
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -137,8 +273,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      onPressed: () =>
-                          Navigator.pop(context, _currentSelected),
+                      onPressed: () => Navigator.pop(context),
                       icon: const Icon(
                         Icons.chevron_left,
                         color: Colors.white,
@@ -159,39 +294,45 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                         SizedBox(height: 2),
                         Text(
                           'Select a delivery address',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-
-              // ================= BODY =================
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Tap an address to use it for this order',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: mutedText,
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: primaryGreen),
+                      )
+                    : addresses.isEmpty
+                    ? _buildEmptyState()
+                    : AbsorbPointer(
+                        absorbing: _isWorking,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Tap an address to use it for this order.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: mutedText,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ...addresses.map(
+                                (address) => _buildAddressCard(
+                                  _normalizeAddress(address),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ..._addresses.map((addr) => _buildAddressCard(addr)),
-                    ],
-                  ),
-                ),
               ),
-
-              // ================= BOTTOM BUTTON =================
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -208,7 +349,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: () => _openAddOrEditAddress(),
+                    onPressed: _isWorking ? null : _openAddAddress,
                     icon: const Icon(Icons.add, color: Colors.white, size: 20),
                     label: const Text(
                       'Add New Address',
@@ -235,9 +376,55 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
     );
   }
 
-  Widget _buildAddressCard(Map<String, dynamic> addr) {
-    final bool isDefault = addr['isDefault'] == true;
-    final bool isSelected = addr['id'] == _currentSelected['id'];
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_off_outlined, size: 54, color: mutedText),
+            const SizedBox(height: 12),
+            const Text(
+              'No saved addresses yet',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Add a delivery address to make checkout easier.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: mutedText),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _openAddAddress,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Address'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: darkGreen,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressCard(Map<String, dynamic> address) {
+    final isDefault =
+        address['is_default'] == true || address['isDefault'] == true;
+
+    final isSelected = address['id'] == _currentSelected?['id'];
+
+    final name = (address['name'] ?? '').toString();
+    final phone = (address['phone'] ?? '').toString();
+    final addressLine = (address['address'] ?? '').toString();
+    final note = (address['note'] ?? '').toString();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -248,7 +435,7 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
           color: isDefault || isSelected
               ? const Color(0xFF22C55E)
               : const Color(0xFFE2E8F0),
-          width: isDefault || isSelected ? 1.5 : 1.0,
+          width: isDefault || isSelected ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -259,185 +446,163 @@ class _SavedAddressesScreenState extends State<SavedAddressesScreen> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _currentSelected = addr;
-          });
-          Navigator.pop(context, addr);
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isDefault)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                color: const Color(0xFF16A34A),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 14,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Default',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isDefault)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              color: const Color(0xFF16A34A),
+              child: const Row(
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF0FDF4),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.location_on_outlined,
-                          color: primaryGreen,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              addr['name'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: ink,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              addr['phone'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: mutedText,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              addr['address'] ?? '',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: ink,
-                                height: 1.3,
-                              ),
-                            ),
-                            if ((addr['note'] ?? '').toString().isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                addr['note'],
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: mutedText,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () =>
-                            _openAddOrEditAddress(addressToEdit: addr),
-                        icon: const Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: primaryGreen,
-                        ),
-                        label: const Text(
-                          'Edit',
-                          style: TextStyle(
-                            color: primaryGreen,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF86EFAC)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                      if (!isDefault) ...[
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () => _setAsDefault(addr),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            'Set as Default',
-                            style: TextStyle(
-                              color: ink,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => _deleteAddress(addr),
-                        icon: const Icon(
-                          Icons.delete_outline,
-                          color: Color(0xFFF87171),
-                          size: 18,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
+                  Icon(Icons.check, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'Default Address',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          InkWell(
+            onTap: () => _selectAddress(address),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF0FDF4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.location_on_outlined,
+                      color: primaryGreen,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          phone,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: mutedText,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          addressLine,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: ink,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (note.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            note,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: mutedText,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(
+                      Icons.radio_button_checked,
+                      color: primaryGreen,
+                      size: 20,
+                    )
+                  else
+                    const Icon(
+                      Icons.radio_button_unchecked,
+                      color: mutedText,
+                      size: 20,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _openEditAddress(address),
+                  icon: const Icon(Icons.edit_outlined, size: 14),
+                  label: const Text('Edit'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryGreen,
+                    side: const BorderSide(color: Color(0xFF86EFAC)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+                if (!isDefault)
+                  OutlinedButton(
+                    onPressed: () => _setAsDefault(address),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: ink,
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Set as Default'),
+                  ),
+                IconButton(
+                  onPressed: () => _deleteAddress(address),
+                  tooltip: 'Delete address',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Color(0xFFF87171),
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

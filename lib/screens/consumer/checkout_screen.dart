@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import 'checkout_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
 
-  const CheckoutScreen({
-    super.key,
-    required this.checkoutItems,
-  });
+  const CheckoutScreen({super.key, required this.checkoutItems});
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -76,17 +74,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckoutAddressScreen(
-          checkoutItems: _items,
-        ),
+        builder: (context) => CheckoutAddressScreen(checkoutItems: _items),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final double remainingForFreeDelivery =
-        _freeDeliveryThreshold - _subtotal;
+    final double remainingForFreeDelivery = _freeDeliveryThreshold - _subtotal;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -201,9 +196,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               color: primaryGreen,
                                             ),
                                           ),
-                                          const TextSpan(
-                                            text: ' more for ',
-                                          ),
+                                          const TextSpan(text: ' more for '),
                                           const TextSpan(
                                             text: 'FREE delivery!',
                                             style: TextStyle(
@@ -214,8 +207,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         ]
                                       : [
                                           const TextSpan(
-                                            text:
-                                                ' You have unlocked FREE delivery!',
+                                            text: ' You have unlocked FREE delivery!',
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color: primaryGreen,
@@ -355,7 +347,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               height: 26,
                                               decoration: BoxDecoration(
                                                 border: Border.all(
-                                                  color: const Color(0xFFE0E0E0),
+                                                  color: const Color(
+                                                    0xFFE0E0E0,
+                                                  ),
                                                 ),
                                                 borderRadius:
                                                     BorderRadius.circular(6),
@@ -363,12 +357,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               child: Row(
                                                 children: [
                                                   InkWell(
-                                                    onTap: () => _updateQuantity(
-                                                        index, -1),
+                                                    onTap: () =>
+                                                        _updateQuantity(
+                                                          index,
+                                                          -1,
+                                                        ),
                                                     child: const Padding(
                                                       padding:
                                                           EdgeInsets.symmetric(
-                                                              horizontal: 8),
+                                                            horizontal: 8,
+                                                          ),
                                                       child: Text(
                                                         '-',
                                                         style: TextStyle(
@@ -381,9 +379,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   Container(
                                                     padding:
                                                         const EdgeInsets.symmetric(
-                                                      horizontal: 10,
+                                                          horizontal: 10,
+                                                        ),
+                                                    color: const Color(
+                                                      0xFFF9F9F9,
                                                     ),
-                                                    color: const Color(0xFFF9F9F9),
                                                     alignment: Alignment.center,
                                                     child: Text(
                                                       '${item['quantity']}',
@@ -396,12 +396,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     ),
                                                   ),
                                                   InkWell(
-                                                    onTap: () => _updateQuantity(
-                                                        index, 1),
+                                                    onTap: () =>
+                                                        _updateQuantity(
+                                                          index,
+                                                          1,
+                                                        ),
                                                     child: const Padding(
                                                       padding:
                                                           EdgeInsets.symmetric(
-                                                              horizontal: 8),
+                                                            horizontal: 8,
+                                                          ),
                                                       child: Text(
                                                         '+',
                                                         style: TextStyle(
@@ -434,9 +438,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black12,
@@ -532,7 +534,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _items.isEmpty ? null : _proceedToCheckoutSteps,
+                          onPressed: _items.isEmpty
+                              ? null
+                              : _proceedToCheckoutSteps,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryGreen,
                             disabledBackgroundColor: Colors.grey.shade300,

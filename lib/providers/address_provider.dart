@@ -4,34 +4,29 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AddressProvider extends ChangeNotifier {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  int? _addressId;
-  String recipientName = '';
-  String phoneNumber = '';
-  String deliveryAddress = '';
-  String landmark = '';
+  List<Map<String, dynamic>> _addresses = [];
+
+  List<Map<String, dynamic>> get addresses => List.unmodifiable(_addresses);
 
   bool isLoading = false;
   bool isSaving = false;
   String? errorMessage;
 
-  bool get hasAddress =>
-      recipientName.trim().isNotEmpty &&
-      phoneNumber.trim().isNotEmpty &&
-      deliveryAddress.trim().isNotEmpty;
+  Map<String, dynamic>? get defaultAddress {
+    for (final address in _addresses) {
+      if (address['is_default'] == true) return address;
+    }
 
-  Map<String, dynamic> get addressMap => {
-    if (_addressId != null) 'id': _addressId,
-    'name': recipientName,
-    'phone': phoneNumber,
-    'address': deliveryAddress,
-    'note': landmark,
-  };
+    return _addresses.isEmpty ? null : _addresses.first;
+  }
+
+  bool get hasAddress => _addresses.isNotEmpty;
 
   Future<void> loadAddress() async {
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
-      errorMessage = 'Please log in to load your saved address.';
+      errorMessage = 'Please log in to view your addresses.';
       notifyListeners();
       return;
     }
@@ -41,26 +36,16 @@ class AddressProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _supabase
+      final result = await _supabase
           .from('user_addresses')
           .select()
           .eq('user_id', user.id)
           .order('is_default', ascending: false)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
+          .order('created_at', ascending: false);
 
-      if (data != null) {
-        _addressId = data['id'] as int?;
-        recipientName = data['full_name'] ?? '';
-        phoneNumber = data['mobile_number'] ?? '';
-        deliveryAddress = data['address_line'] ?? '';
-        landmark = data['delivery_notes'] ?? '';
-      } else {
-        _clearAddress();
-      }
+      _addresses = List<Map<String, dynamic>>.from(result);
     } catch (e) {
-      errorMessage = 'Could not load address: $e';
+      errorMessage = 'Could not load addresses: $e';
     } finally {
       isLoading = false;
       notifyListeners();
@@ -68,6 +53,7 @@ class AddressProvider extends ChangeNotifier {
   }
 
   Future<bool> saveAddress({
+    int? id,
     required String name,
     required String phone,
     required String address,
@@ -76,7 +62,7 @@ class AddressProvider extends ChangeNotifier {
     final user = _supabase.auth.currentUser;
 
     if (user == null) {
-      errorMessage = 'Please log in before saving your address.';
+      errorMessage = 'Please log in before saving an address.';
       notifyListeners();
       return false;
     }
@@ -86,6 +72,12 @@ class AddressProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final shouldBeDefault = id != null
+          ? _addresses.any(
+              (item) => item['id'] == id && item['is_default'] == true,
+            )
+          : _addresses.isEmpty;
+
       final values = <String, dynamic>{
         'user_id': user.id,
         'full_name': name.trim(),
@@ -94,31 +86,21 @@ class AddressProvider extends ChangeNotifier {
         'delivery_notes': landmarkText.trim().isEmpty
             ? null
             : landmarkText.trim(),
-        'is_default': true,
+        'is_default': shouldBeDefault,
       };
 
-      if (_addressId != null) {
+      if (id != null) {
         await _supabase
             .from('user_addresses')
             .update(values)
-            .eq('id', _addressId!)
+            .eq('id', id)
             .eq('user_id', user.id);
       } else {
-        final inserted = await _supabase
-            .from('user_addresses')
-            .insert(values)
-            .select('id')
-            .single();
-
-        _addressId = inserted['id'] as int;
+        await _supabase.from('user_addresses').insert(values);
       }
 
-      recipientName = name.trim();
-      phoneNumber = phone.trim();
-      deliveryAddress = address.trim();
-      landmark = landmarkText.trim();
-
-      return true;
+      await loadAddress();
+      return errorMessage == null;
     } catch (e) {
       errorMessage = 'Could not save address: $e';
       return false;
@@ -128,11 +110,67 @@ class AddressProvider extends ChangeNotifier {
     }
   }
 
-  void _clearAddress() {
-    _addressId = null;
-    recipientName = '';
-    phoneNumber = '';
-    deliveryAddress = '';
-    landmark = '';
+  Future<bool> setDefaultAddress(int id) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      errorMessage = 'Please log in first.';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      await _supabase
+          .from('user_addresses')
+          .update({'is_default': false})
+          .eq('user_id', user.id);
+
+      await _supabase
+          .from('user_addresses')
+          .update({'is_default': true})
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+      await loadAddress();
+      return errorMessage == null;
+    } catch (e) {
+      errorMessage = 'Could not update default address: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> deleteAddress(int id) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      errorMessage = 'Please log in first.';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      final wasDefault = _addresses.any(
+        (item) => item['id'] == id && item['is_default'] == true,
+      );
+
+      await _supabase
+          .from('user_addresses')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+      await loadAddress();
+
+      if (wasDefault && _addresses.isNotEmpty) {
+        await setDefaultAddress(_addresses.first['id'] as int);
+      }
+
+      return errorMessage == null;
+    } catch (e) {
+      errorMessage = 'Could not delete address: $e';
+      notifyListeners();
+      return false;
+    }
   }
 }
