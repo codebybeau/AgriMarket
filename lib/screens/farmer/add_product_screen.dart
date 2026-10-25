@@ -1,14 +1,17 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
-// Helper class for multi-image storage
+// Model class for multi-image picker
 class ImageData {
   final Uint8List bytes;
   final String extension;
 
-  ImageData({required this.bytes, required this.extension});
+  ImageData({
+    required this.bytes,
+    required this.extension,
+  });
 }
 
 class AddNewProductScreen extends StatefulWidget {
@@ -71,7 +74,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     );
   }
 
-  // --- 1. PICK MULTIPLE IMAGES FROM GALLERY ---
+  //--- 1. PICK MULTIPLE IMAGES FROM GALLERY ---
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
@@ -87,11 +90,11 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error picking images: $e');
+      debugPrint('Error picking image: $e');
     }
   }
 
-  // --- 2. FETCH DROPDOWNS FROM DATABASE ---
+  //--- 2. FETCH DROPDOWNS FROM DATABASE ---
   Future<void> _fetchDropdownData() async {
     try {
       final categoriesData = await supabase.from('categories').select('id, name');
@@ -101,7 +104,6 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       setState(() {
         categoriesList = List<Map<String, dynamic>>.from(categoriesData);
         unitsList = List<Map<String, dynamic>>.from(unitsData);
-
         if (categoriesList.isNotEmpty) selectedCategoryId = categoriesList[0]['id'];
         if (unitsList.isNotEmpty) selectedUnitId = unitsList[0]['id'];
         isFetchingDropdowns = false;
@@ -116,7 +118,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     }
   }
 
-  // --- 3. PUBLISH PRODUCT & MULTIPLE IMAGES TO DATABASE ---
+  //--- 3. PUBLISH PRODUCT & MULTIPLE IMAGES TO DATABASE ---
   Future<void> _publishProduct() async {
     final name = nameController.text.trim();
     final price = double.tryParse(priceController.text.trim());
@@ -126,12 +128,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       _showMessage('Enter a product name and a valid price greater than 0.');
       return;
     }
-
     if (selectedImages.isEmpty) {
       _showMessage('Please select at least one product photo.');
       return;
     }
-
     if (selectedCategoryId == null || selectedUnitId == null) {
       _showMessage('Please select a category and unit.');
       return;
@@ -139,11 +139,9 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
     double? wholesalePrice;
     int? wholesaleMinQty;
-
     if (isWholesaleActive) {
       wholesalePrice = double.tryParse(wholesalePriceController.text.trim());
       wholesaleMinQty = int.tryParse(wholesaleMinQtyController.text.trim());
-
       if (wholesalePrice == null || wholesalePrice <= 0 || wholesaleMinQty == null || wholesaleMinQty <= 0) {
         _showMessage('Enter a valid wholesale price and minimum quantity.');
         return;
@@ -165,7 +163,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
             'seller_id': userId,
             'name': name,
             'price': price,
-            'stock_quantity': stock,
+            'stock_quantity': stock ?? 0,
             'unit_id': selectedUnitId,
             'category_id': selectedCategoryId,
             'description': descriptionController.text.trim(),
@@ -191,9 +189,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
             );
 
         // Get Public URL
-        final String imageUrl = supabase.storage
-            .from('product_images')
-            .getPublicUrl(storagePath);
+        final String imageUrl = supabase.storage.from('product_images').getPublicUrl(storagePath);
 
         // Save URL record to product_images table
         await supabase.from('product_images').insert({
@@ -259,7 +255,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                   _buildMultiImageUploader(),
                   const SizedBox(height: 20),
                   _buildInputField('PRODUCT NAME', 'e.g. Organic Ampalaya (Bitter Gourd)', nameController),
-                  _buildInputField('PRICE (P)', '0.00', priceController, isNumber: true),
+                  _buildInputField('PRICE (₱)', '0.00', priceController, isNumber: true),
                   _buildInputField('STOCK QUANTITY', '0', stockController, isNumber: true),
                   _buildDropdownField('UNIT', selectedUnitId, unitsList, (newValue) {
                     setState(() => selectedUnitId = newValue);
@@ -271,7 +267,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                   _buildWholesaleToggle(),
                   if (isWholesaleActive) ...[
                     const SizedBox(height: 20),
-                    _buildInputField('WHOLESALE PRICE (P)', '0.00', wholesalePriceController, isNumber: true),
+                    _buildInputField('WHOLESALE PRICE (₱)', '0.00', wholesalePriceController, isNumber: true),
                     _buildInputField('WHOLESALE MINIMUM QUANTITY', 'e.g. 10', wholesaleMinQtyController, isNumber: true),
                   ],
                   const SizedBox(height: 20),
@@ -390,7 +386,6 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         scrollDirection: Axis.horizontal,
         itemCount: selectedImages.length + 1,
         itemBuilder: (context, index) {
-          // Last item is the "+" button to add more images
           if (index == selectedImages.length) {
             return GestureDetector(
               onTap: _pickImages,
@@ -438,7 +433,6 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                     fit: BoxFit.cover,
                   ),
                 ),
-                // Cover badge for the first photo
                 if (index == 0)
                   Positioned(
                     bottom: 0,
@@ -457,7 +451,6 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                       ),
                     ),
                   ),
-                // Remove photo button
                 Positioned(
                   top: 4,
                   right: 4,

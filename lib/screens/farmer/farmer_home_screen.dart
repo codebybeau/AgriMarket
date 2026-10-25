@@ -19,7 +19,6 @@ class FarmerHome extends StatefulWidget {
 
 class _FarmerHomeState extends State<FarmerHome> {
   int _selectedIndex = 0;
-
   final List<String> _titles = const [
     'Farmer Dashboard',
     'My Orders',
@@ -71,8 +70,10 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
 
     if (shouldLogout != true || !mounted) return;
+
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.logout();
+
     if (!mounted) return;
 
     if (auth.isLoggedIn) {
@@ -326,7 +327,7 @@ class _FarmerHomeState extends State<FarmerHome> {
                 Expanded(
                   child: _statCard(
                     title: 'Sales',
-                    value: 'P0.00',
+                    value: '₱0.00',
                     icon: Icons.payments_outlined,
                     color: Colors.purple,
                     onTap: () => _goToTab(1),
@@ -384,7 +385,7 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
   }
 
-  // MY PRODUCTS TAB (With Dynamic Supabase Products, Multi-Image Fetch, and Edit Button)
+  // MY PRODUCTS TAB
   Widget _buildProducts() {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
@@ -444,8 +445,8 @@ class _FarmerHomeState extends State<FarmerHome> {
 
               final products = snapshot.data ?? [];
               if (products.isEmpty) {
-                return Column(
-                  children: const [
+                return const Column(
+                  children: [
                     SizedBox(height: 40),
                     Icon(
                       Icons.inventory_2_outlined,
@@ -507,37 +508,27 @@ class _FarmerHomeState extends State<FarmerHome> {
                               if (imageSnapshot.hasData &&
                                   imageSnapshot.data != null &&
                                   imageSnapshot.data!.isNotEmpty) {
-                                imageUrl = imageSnapshot.data!.first['image_url']
-                                    as String?;
+                                imageUrl = imageSnapshot.data!.first['image_url'] as String?;
                               }
-
                               if (imageUrl != null && imageUrl.isNotEmpty) {
                                 return Image.network(
                                   imageUrl,
                                   width: 60,
                                   height: 60,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
+                                  errorBuilder: (context, error, stackTrace) => Container(
                                     width: 60,
                                     height: 60,
                                     color: Colors.grey[200],
-                                    child: const Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey,
-                                    ),
+                                    child: const Icon(Icons.broken_image, color: Colors.grey),
                                   ),
                                 );
                               }
-
                               return Container(
                                 width: 60,
                                 height: 60,
                                 color: Colors.grey[200],
-                                child: const Icon(
-                                  Icons.image,
-                                  color: Colors.grey,
-                                ),
+                                child: const Icon(Icons.image, color: Colors.grey),
                               );
                             },
                           ),
@@ -556,7 +547,7 @@ class _FarmerHomeState extends State<FarmerHome> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'P${product['price'] ?? 0}/$unit',
+                                '₱${product['price'] ?? 0}/$unit',
                                 style: const TextStyle(color: Colors.black54),
                               ),
                               const SizedBox(height: 6),
@@ -572,30 +563,24 @@ class _FarmerHomeState extends State<FarmerHome> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  isOutOfStock
-                                      ? 'Out of stock'
-                                      : '$stock in stock',
+                                  isOutOfStock ? 'Out of stock' : '$stock in stock',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: isOutOfStock
-                                        ? Colors.red
-                                        : agriGreen,
+                                    color: isOutOfStock ? Colors.red : agriGreen,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        // EDIT PRODUCT BUTTON
                         IconButton(
                           icon: const Icon(Icons.edit_outlined, color: agriGreen),
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    EditProductScreen(product: product),
+                                builder: (context) => EditProductScreen(product: product),
                               ),
                             );
                           },
@@ -611,46 +596,56 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
   }
 
+  // STAT CARD WIDGET WITH OPTIONAL onTap PARAMETER
   Widget _statCard({
     required String title,
     required String value,
     required IconData icon,
     required Color color,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
-    return Card(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 30),
-              const SizedBox(height: 12),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 4),
-              Text(title, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF263328),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // QUICK ACTION TILE WIDGET
   Widget _actionTile({
     required IconData icon,
     required String title,
@@ -666,10 +661,18 @@ class _FarmerHomeState extends State<FarmerHome> {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: ListTile(
-        leading: Icon(icon, color: agriGreen),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: agriGreen),
+        ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         onTap: onTap,
       ),
     );
