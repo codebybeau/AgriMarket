@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../services/farmer_dashboard_service.dart';
 import 'farmer_theme.dart';
 
 class FarmerOrdersScreen extends StatefulWidget {
@@ -10,10 +11,10 @@ class FarmerOrdersScreen extends StatefulWidget {
 }
 
 class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
-  // Starts at zero. Products do not automatically create orders.
-  // Real orders will be loaded from the backend later.
-  final List<Map<String, dynamic>> _orders = [];
-
+  final FarmerDataService _service = FarmerDataService();
+  List<Map<String, dynamic>> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
   String _selectedFilter = 'All';
 
   final List<String> _filters = [
@@ -24,23 +25,43 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     'Cancelled',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final rows = await _service.fetchSellerOrders();
+      if (!mounted) return;
+      setState(() {
+        _orders = rows;
+        _isLoading = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Farmer orders error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Could not load orders. Check your connection and Supabase policies.';
+      });
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredOrders {
-    if (_selectedFilter == 'All') {
-      return _orders;
-    }
-
-    return _orders
-        .where((order) => order['status'] == _selectedFilter)
-        .toList();
+    if (_selectedFilter == 'All') return _orders;
+    return _orders.where((o) => o['status'] == _selectedFilter).toList();
   }
 
-  int _countOrders(String status) {
-    if (status == 'All') {
-      return _orders.length;
-    }
-
-    return _orders.where((order) => order['status'] == status).length;
-  }
+  int _countOrders(String status) => status == 'All'
+      ? _orders.length
+      : _orders.where((o) => o['status'] == status).length;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +78,12 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            onPressed: _loadOrders,
+            icon: const Icon(Icons.refresh, color: agriDarkGreen),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -71,7 +98,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Summary cards show zero while there are no orders.
   Widget _buildSummary() {
     return Container(
       color: Colors.white,
@@ -147,7 +173,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Filters remain available for future real orders.
   Widget _buildFilters() {
     return Container(
       color: Colors.white,
@@ -156,18 +181,13 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: _filters.map((filter) {
-            final bool selected = _selectedFilter == filter;
-
+            final selected = _selectedFilter == filter;
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
                 label: Text('$filter (${_countOrders(filter)})'),
                 selected: selected,
-                onSelected: (_) {
-                  setState(() {
-                    _selectedFilter = filter;
-                  });
-                },
+                onSelected: (_) => setState(() => _selectedFilter = filter),
                 selectedColor: agriGreen,
                 backgroundColor: Colors.white,
                 showCheckmark: false,
@@ -190,25 +210,44 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // No orders means no order cards or products are displayed.
   Widget _buildOrdersContent() {
-    if (_orders.isEmpty) {
-      return _buildEmptyState();
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 42,
+              ),
+              const SizedBox(height: 12),
+              Text(_errorMessage!, textAlign: TextAlign.center),
+              TextButton.icon(
+                onPressed: _loadOrders,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-
+    if (_orders.isEmpty) return _buildEmptyState();
     final orders = _filteredOrders;
-
-    if (orders.isEmpty) {
-      return _buildNoFilteredOrdersState();
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: orders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return _buildOrderCard(orders[index]);
-      },
+    if (orders.isEmpty) return _buildNoFilteredOrdersState();
+    return RefreshIndicator(
+      onRefresh: _loadOrders,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: orders.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) => _buildOrderCard(orders[index]),
+      ),
     );
   }
 
@@ -226,7 +265,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
                 color: agriGreen.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.receipt_long_outlined,
                 size: 54,
                 color: agriGreen,
@@ -244,9 +283,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'You currently have 0 orders. '
-              'Orders will appear here when customers '
-              'place orders for your products.',
+              'You currently have 0 orders. Orders will appear here when customers place orders for your products.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -285,11 +322,14 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Displays order details only when an actual order exists.
   Widget _buildOrderCard(Map<String, dynamic> order) {
-    final String status = order['status']?.toString() ?? 'Pending';
-    final Color statusColor = _getStatusColor(status);
-
+    final status = order['status']?.toString() ?? 'Pending';
+    final statusColor = _getStatusColor(status);
+    final date = DateTime.tryParse(order['created_at']?.toString() ?? '');
+    final dateText = date == null
+        ? '-'
+        : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    final total = (order['total'] as num?)?.toDouble() ?? 0;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -304,7 +344,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
             children: [
               Expanded(
                 child: Text(
-                  order['id']?.toString() ?? 'Order',
+                  order['display_id']?.toString() ?? 'Order',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -335,7 +375,8 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
           _detailRow('Customer', order['customer']?.toString() ?? '-'),
           _detailRow('Product', order['product']?.toString() ?? '-'),
           _detailRow('Quantity', order['quantity']?.toString() ?? '-'),
-          _detailRow('Total', '₱${order['total'] ?? '0.00'}'),
+          _detailRow('Date', dateText),
+          _detailRow('Total', '₱${total.toStringAsFixed(2)}'),
         ],
       ),
     );
@@ -370,14 +411,14 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return Colors.orange;
-      case 'Confirmed':
+      case 'confirmed':
         return Colors.blue;
-      case 'Completed':
+      case 'completed':
         return Colors.green;
-      case 'Cancelled':
+      case 'cancelled':
         return Colors.red;
       default:
         return Colors.grey;

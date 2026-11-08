@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/farmer_dashboard_service.dart';
 import '../auth/login_screen.dart';
 import 'add_product_screen.dart';
 import 'farmer_orders_screen.dart';
@@ -18,7 +19,16 @@ class FarmerHome extends StatefulWidget {
 }
 
 class _FarmerHomeState extends State<FarmerHome> {
+  final FarmerDataService _dashboardService = FarmerDataService();
   int _selectedIndex = 0;
+  bool _isSummaryLoading = true;
+  String? _summaryError;
+  Map<String, dynamic> _summary = {
+    'product_count': 0,
+    'pending_orders': 0,
+    'completed_orders': 0,
+    'sales': 0.0,
+  };
 
   final List<String> _titles = const [
     'Farmer Dashboard',
@@ -28,19 +38,45 @@ class _FarmerHomeState extends State<FarmerHome> {
     'My Profile',
   ];
 
-  void _goToTab(int index) {
-    if (index < 0 || index >= _titles.length) return;
-
-    setState(() {
-      _selectedIndex = index;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardSummary();
   }
 
-  void _addProduct() {
-    Navigator.push(
+  Future<void> _loadDashboardSummary() async {
+    try {
+      final data = await _dashboardService.fetchDashboardSummary();
+      if (!mounted) return;
+      setState(() {
+        _summary = data;
+        _isSummaryLoading = false;
+        _summaryError = null;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Farmer dashboard error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      setState(() {
+        _isSummaryLoading = false;
+        _summaryError = 'Unable to load dashboard information.';
+      });
+    }
+  }
+
+  void _goToTab(int index) {
+    if (index < 0 || index >= _titles.length) return;
+    setState(() => _selectedIndex = index);
+    if (index == 0) _loadDashboardSummary();
+  }
+
+  Future<void> _addProduct() async {
+    final published = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (context) => const AddNewProductScreen()),
+      MaterialPageRoute(builder: (_) => const AddNewProductScreen()),
     );
+    if (!mounted) return;
+    if (published == true) _loadDashboardSummary();
   }
 
   void _showMessage(String message) {
@@ -51,41 +87,34 @@ class _FarmerHomeState extends State<FarmerHome> {
   Future<void> _confirmLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Log out?'),
-          content: const Text('Are you sure you want to log out of AgriMart?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('Are you sure you want to log out of AgriMart?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: agriGreen,
+              foregroundColor: Colors.white,
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: agriGreen,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Log Out'),
-            ),
-          ],
-        );
-      },
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
     );
-
     if (shouldLogout != true || !mounted) return;
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
-
     await auth.logout();
-
     if (!mounted) return;
-
     if (auth.isLoggedIn) {
       _showMessage(auth.errorMessage ?? 'Unable to log out.');
       return;
     }
-
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -133,9 +162,8 @@ class _FarmerHomeState extends State<FarmerHome> {
         actions: [
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () {
-              _showMessage('Notifications will be available soon.');
-            },
+            onPressed: () =>
+                _showMessage('Notifications will be available soon.'),
             icon: const Icon(
               Icons.notifications_none_rounded,
               color: agriDarkGreen,
@@ -144,11 +172,9 @@ class _FarmerHomeState extends State<FarmerHome> {
           PopupMenuButton<String>(
             tooltip: 'Account options',
             onSelected: (value) {
-              if (value == 'logout') {
-                _confirmLogout();
-              }
+              if (value == 'logout') _confirmLogout();
             },
-            itemBuilder: (context) => const [
+            itemBuilder: (_) => const [
               PopupMenuItem<String>(
                 value: 'logout',
                 child: Row(
@@ -216,187 +242,202 @@ class _FarmerHomeState extends State<FarmerHome> {
         final firstName = name == 'Guest' || name.isEmpty
             ? 'Farmer'
             : name.split(' ').first;
-
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            // Welcome card
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: agriGreen,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'FARMER ACCOUNT',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Hello, $firstName! 🌱',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Manage your farm products and connect with buyers.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _addProduct,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add New Product'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: agriDarkGreen,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+        return RefreshIndicator(
+          onRefresh: _loadDashboardSummary,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: agriGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'FARMER ACCOUNT',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        letterSpacing: 1.5,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    Text(
+                      'Hello, $firstName! 🌱',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Manage your farm products and connect with buyers.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _addProduct,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add New Product'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: agriDarkGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-
-            const SizedBox(height: 26),
-
-            const Text(
-              'Overview',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _statCard(
-                    title: 'Products',
-                    value: '0',
-                    icon: Icons.inventory_2_outlined,
-                    color: agriGreen,
-                    onTap: () => _goToTab(2),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _statCard(
-                    title: 'Pending Orders',
-                    value: '0',
-                    icon: Icons.pending_actions_outlined,
-                    color: Colors.orange,
-                    onTap: () => _goToTab(1),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _statCard(
-                    title: 'Completed Orders',
-                    value: '0',
-                    icon: Icons.task_alt,
-                    color: Colors.blue,
-                    onTap: () => _goToTab(1),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _statCard(
-                    title: 'Sales',
-                    value: '₱0.00',
-                    icon: Icons.payments_outlined,
-                    color: Colors.purple,
-                    onTap: () => _goToTab(3),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 28),
-
-            const Text(
-              'Quick Actions',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-
-            _actionTile(
-              icon: Icons.add_box_outlined,
-              title: 'Add a product',
-              subtitle: 'List fresh produce for buyers',
-              onTap: _addProduct,
-            ),
-
-            _actionTile(
-              icon: Icons.inventory_outlined,
-              title: 'Manage products',
-              subtitle: 'View your product listings',
-              onTap: () => _goToTab(2),
-            ),
-
-            _actionTile(
-              icon: Icons.receipt_long_outlined,
-              title: 'View orders',
-              subtitle: 'Check customer orders',
-              onTap: () => _goToTab(1),
-            ),
-
-            _actionTile(
-              icon: Icons.bar_chart_outlined,
-              title: 'View sales',
-              subtitle: 'Check your sales overview',
-              onTap: () => _goToTab(3),
-            ),
-
-            const SizedBox(height: 16),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(14),
+              const SizedBox(height: 26),
+              const Text(
+                'Overview',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.lightbulb_outline, color: agriGreen),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Tip: Use clear product photos and accurate prices '
-                      'to help buyers understand your products.',
-                      style: TextStyle(color: agriDarkGreen, height: 1.5),
+              const SizedBox(height: 14),
+              if (_isSummaryLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_summaryError != null)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                    ),
+                    title: Text(_summaryError!),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: _loadDashboardSummary,
                     ),
                   ),
-                ],
+                )
+              else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statCard(
+                        title: 'Products',
+                        value: '${_summary['product_count']}',
+                        icon: Icons.inventory_2_outlined,
+                        color: agriGreen,
+                        onTap: () => _goToTab(2),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        title: 'Pending Orders',
+                        value: '${_summary['pending_orders']}',
+                        icon: Icons.pending_actions_outlined,
+                        color: Colors.orange,
+                        onTap: () => _goToTab(1),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _statCard(
+                        title: 'Completed Orders',
+                        value: '${_summary['completed_orders']}',
+                        icon: Icons.task_alt,
+                        color: Colors.blue,
+                        onTap: () => _goToTab(1),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        title: 'Sales',
+                        value: _peso(_summary['sales']),
+                        icon: Icons.payments_outlined,
+                        color: Colors.purple,
+                        onTap: () => _goToTab(3),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 28),
+              const Text(
+                'Quick Actions',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-            ),
-
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 14),
+              _actionTile(
+                icon: Icons.add_box_outlined,
+                title: 'Add a product',
+                subtitle: 'List fresh produce for buyers',
+                onTap: _addProduct,
+              ),
+              _actionTile(
+                icon: Icons.inventory_outlined,
+                title: 'Manage products',
+                subtitle: 'View your product listings',
+                onTap: () => _goToTab(2),
+              ),
+              _actionTile(
+                icon: Icons.receipt_long_outlined,
+                title: 'View orders',
+                subtitle: 'Check customer orders',
+                onTap: () => _goToTab(1),
+              ),
+              _actionTile(
+                icon: Icons.bar_chart_outlined,
+                title: 'View sales',
+                subtitle: 'Check your sales overview',
+                onTap: () => _goToTab(3),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: agriGreen),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Tip: Use clear product photos and accurate prices to help buyers understand your products.',
+                        style: TextStyle(color: agriDarkGreen, height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         );
       },
     );
+  }
+
+  String _peso(dynamic value) {
+    final amount = value is num
+        ? value.toDouble()
+        : double.tryParse('$value') ?? 0;
+    return '₱${amount.toStringAsFixed(2)}';
   }
 
   Widget _statCard({
