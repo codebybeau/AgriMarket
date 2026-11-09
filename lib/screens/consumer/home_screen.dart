@@ -1,16 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-
-import '../../providers/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../services/product_catalog_service.dart';
+
 import 'marketplace_screen.dart';
 import 'notification_screen.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'cart_screen.dart';
 import 'categories_screen.dart';
+import 'product_details_screen.dart';
+import 'farm_details_screen.dart';
 
 class NoStretchScrollBehavior extends MaterialScrollBehavior {
   const NoStretchScrollBehavior();
@@ -21,7 +26,7 @@ class NoStretchScrollBehavior extends MaterialScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) {
-    return child; // Removes the overscroll stretch effect
+    return child;
   }
 }
 
@@ -39,9 +44,50 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
+  static const String defaultFarmBanner =
+      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600';
+
   final TextEditingController _searchController = TextEditingController();
+  final SupabaseClient _supabase = Supabase.instance.client;
+
   String _searchQuery = '';
-  String _selectedCategory = 'All';
+
+  late final PageController _bannerPageController;
+  int _currentBannerIndex = 0;
+  Timer? _bannerTimer;
+
+  bool _isLoadingProducts = true;
+  bool _isLoadingFarmers = true;
+
+  String? _productError;
+  String? _farmerError;
+
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _farmerStores = [];
+
+  final List<Map<String, dynamic>> _saleBanners = [
+    {
+      'title': '🌾 Harvest Season Sale',
+      'subtitle': 'Discover fresh produce from local farmers',
+      'buttonText': 'Shop Now',
+      'image':
+          'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200',
+    },
+    {
+      'title': '🌽 Direct From Farmers',
+      'subtitle': 'Explore products from local farms',
+      'buttonText': 'Explore',
+      'image':
+          'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1200',
+    },
+    {
+      'title': '📦 Wholesale & Bulk Deals',
+      'subtitle': 'Find products for your bulk orders',
+      'buttonText': 'View Deals',
+      'image':
+          'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1200',
+    },
+  ];
 
   final List<Map<String, dynamic>> _categories = [
     {
@@ -64,192 +110,337 @@ class _HomeScreenState extends State<HomeScreen> {
       'image':
           'https://images.unsplash.com/photo-1510130387422-82bed34b37e9?w=300',
     },
-    {
-      'name': 'Rice & Grains',
-      'image':
-          'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300',
-    },
-    {
-      'name': 'Eggs & Dairy',
-      'image':
-          'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=300',
-    },
-    {
-      'name': 'Herbs & Spices',
-      'image':
-          'https://images.unsplash.com/photo-1506806732259-39c2d0268443?w=300',
-    },
-    {
-      'name': 'Root Crops',
-      'image':
-          'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300',
-    },
   ];
 
-  final List<Map<String, dynamic>> _products = [
-    {
-      'name': 'Organic Ampalaya (Bitter Gourd)',
-      'category': 'Vegetables',
-      'price': 85.00,
-      'originalPrice': 110.00,
-      'discount': '-23%',
-      'unit': '/kg',
-      'rating': '4.8',
-      'reviews': '234',
-      'location': 'Benguet, CAR',
-      'image':
-          'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=600',
-      'badges': ['Organic'],
-      'bottomBadges': ['Fresh harvest', 'Wholesale'],
-    },
-    {
-      'name': 'Carabao Mango (Export Quality)',
-      'category': 'Fruits',
-      'price': 180.00,
-      'originalPrice': null,
-      'discount': null,
-      'unit': '/kg',
-      'rating': '4.9',
-      'reviews': '512',
-      'location': 'Guimaras, Western Visayas',
-      'image':
-          'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600',
-      'badges': [],
-      'bottomBadges': ['Fresh harvest', 'Wholesale', 'Pre-order'],
-    },
-    {
-      'name': 'Native Chicken (Whole)',
-      'category': 'Meat & Poultry',
-      'price': 350.00,
-      'originalPrice': null,
-      'discount': null,
-      'unit': '/piece',
-      'rating': '4.7',
-      'reviews': '189',
-      'location': 'Laguna, Region IV-A',
-      'image':
-          'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=600',
-      'badges': [],
-      'bottomBadges': [],
-    },
-    {
-      'name': 'Dinorado Rice (Premium)',
-      'category': 'Rice & Grains',
-      'price': 68.00,
-      'originalPrice': null,
-      'discount': null,
-      'unit': '/kg',
-      'rating': '4.6',
-      'reviews': '890',
-      'location': 'Nueva Ecija, Region III',
-      'image':
-          'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
-      'badges': [],
-      'bottomBadges': [],
-    },
-    {
-      'name': 'Fresh Eggplant (Talong)',
-      'category': 'Vegetables',
-      'price': 55.00,
-      'originalPrice': 70.00,
-      'discount': '-21%',
-      'unit': '/kg',
-      'rating': '4.7',
-      'reviews': '142',
-      'location': 'Quezon, Region IV-A',
-      'image':
-          'https://images.unsplash.com/photo-1659261200838-6e6a3a3d7d84?w=600',
-      'badges': [],
-      'bottomBadges': ['Fresh harvest'],
-    },
-    {
-      'name': 'Farm Fresh Eggs (30 pcs)',
-      'category': 'Eggs & Dairy',
-      'price': 220.00,
-      'originalPrice': null,
-      'discount': null,
-      'unit': '/tray',
-      'rating': '4.9',
-      'reviews': '620',
-      'location': 'Batangas, Region IV-A',
-      'image':
-          'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=600',
-      'badges': ['Farm fresh'],
-      'bottomBadges': ['Wholesale'],
-    },
-    {
-      'name': 'Fresh Tilapia',
-      'category': 'Fish & Seafood',
-      'price': 160.00,
-      'originalPrice': 180.00,
-      'discount': '-11%',
-      'unit': '/kg',
-      'rating': '4.5',
-      'reviews': '98',
-      'location': 'Pampanga, Region III',
-      'image':
-          'https://images.unsplash.com/photo-1510130387422-82bed34b37e9?w=600',
-      'badges': [],
-      'bottomBadges': ['Fresh harvest'],
-    },
-    {
-      'name': 'Sweet Red Sweet Potato',
-      'category': 'Root Crops',
-      'price': 45.00,
-      'originalPrice': null,
-      'discount': null,
-      'unit': '/kg',
-      'rating': '4.8',
-      'reviews': '76',
-      'location': 'Tarlac, Region III',
-      'image':
-          'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600',
-      'badges': ['Organic'],
-      'bottomBadges': [],
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
 
-  List<Map<String, dynamic>> get _filteredProducts {
-    final query = _searchQuery.trim().toLowerCase();
-    return _products.where((p) {
-      final categoryMatch =
-          _selectedCategory == 'All' || p['category'] == _selectedCategory;
-      final searchMatch =
-          query.isEmpty ||
-          p['name'].toString().toLowerCase().contains(query) ||
-          p['category'].toString().toLowerCase().contains(query);
-      return categoryMatch && searchMatch;
+    _bannerPageController = PageController();
+
+    _startBannerAutoScroll();
+
+    _loadProducts();
+    _loadFarmers();
+  }
+
+  // --------------------------------------------------
+  // LOAD PRODUCTS
+  // --------------------------------------------------
+
+  Future<void> _loadProducts() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingProducts = true;
+      _productError = null;
+    });
+
+    try {
+      final result = await ProductCatalogService().fetchActiveProducts();
+
+      final liveProducts = result.map((product) {
+        final rawUnit = (product['unit_name'] ?? 'unit').toString().trim();
+
+        final unit = rawUnit.startsWith('/') ? rawUnit.substring(1) : rawUnit;
+
+        final images = product['images'];
+
+        String imageUrl = product['image_url']?.toString() ?? '';
+
+        if (imageUrl.isEmpty && images is List && images.isNotEmpty) {
+          imageUrl = images.first.toString();
+        }
+
+        final price = product['price'];
+
+        return <String, dynamic>{
+          'id': product['id'],
+          'seller_id': product['seller_id'],
+          'name': product['name']?.toString() ?? 'Unnamed Product',
+          'price': price is num ? price.toDouble() : 0.0,
+          'unit': unit,
+          'stock_quantity': product['stock_quantity'] is num
+              ? (product['stock_quantity'] as num).toInt()
+              : 0,
+          'image_url': imageUrl,
+          'description': product['description']?.toString() ?? '',
+          'category_name':
+              product['category_name']?.toString() ?? 'Uncategorized',
+          'farm_name':
+              product['farm_name']?.toString() ??
+              product['farmer_name']?.toString() ??
+              'Local Farmer',
+          'farmer_name': product['farmer_name']?.toString() ?? 'Local Farmer',
+          'farm_origin':
+              product['farm_origin']?.toString() ?? 'Location not provided',
+          'farmer_bio': product['farmer_bio']?.toString() ?? '',
+          'farmer_contact': product['farmer_contact']?.toString() ?? '',
+          'farmer_avatar': product['farmer_avatar']?.toString() ?? '',
+          'is_organic': product['is_organic'] == true,
+          'delivery_details': product['delivery_details']?.toString() ?? '',
+          'isDemo': false,
+        };
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _products = liveProducts;
+        _isLoadingProducts = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Home product loading error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _products = [];
+        _isLoadingProducts = false;
+        _productError = error.toString();
+      });
+    }
+  }
+
+  // --------------------------------------------------
+  // LOAD FARMER STORES DIRECTLY FROM SUPABASE
+  // --------------------------------------------------
+
+  Future<void> _loadFarmers() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingFarmers = true;
+      _farmerError = null;
+    });
+
+    try {
+      final response = await _supabase
+          .from('farmer_profiles')
+          .select(
+            'user_id, full_name, farm_name, farm_origin, avatar_url, banner_url',
+          )
+          .order('farm_name');
+
+      final farmers = List<Map<String, dynamic>>.from(response);
+
+      final productCounts = <String, int>{};
+
+      // Product counts are optional. A count-query failure
+      // should not prevent farmer profiles from appearing.
+      try {
+        final activeProducts = await _supabase
+            .from('products')
+            .select('seller_id')
+            .eq('status', 'active');
+
+        for (final product in activeProducts) {
+          final sellerId = product['seller_id']?.toString() ?? '';
+
+          if (sellerId.isEmpty) continue;
+
+          productCounts[sellerId] = (productCounts[sellerId] ?? 0) + 1;
+        }
+      } catch (error) {
+        debugPrint('Product count loading error: $error');
+      }
+
+      final stores = farmers
+          .map((farmer) {
+            final sellerId = farmer['user_id']?.toString() ?? '';
+
+            final farmName = farmer['farm_name']?.toString().trim() ?? '';
+            final farmerName = farmer['full_name']?.toString().trim() ?? '';
+            final farmOrigin = farmer['farm_origin']?.toString().trim() ?? '';
+            final avatar = farmer['avatar_url']?.toString().trim() ?? '';
+            final banner = farmer['banner_url']?.toString().trim() ?? '';
+
+            return <String, dynamic>{
+              'seller_id': sellerId,
+              'name': farmName.isNotEmpty ? farmName : 'Local Farmer',
+              'farmer_name': farmerName.isNotEmpty ? farmerName : 'Farmer',
+              'location': farmOrigin.isNotEmpty
+                  ? farmOrigin
+                  : 'Location not provided',
+              'avatar': avatar,
+              'banner_url': banner,
+              'product_count': productCounts[sellerId] ?? 0,
+            };
+          })
+          .where((store) {
+            return (store['seller_id'] as String).isNotEmpty;
+          })
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _farmerStores = stores;
+        _isLoadingFarmers = false;
+      });
+
+      debugPrint('Loaded ${stores.length} farmer stores.');
+    } catch (error, stackTrace) {
+      debugPrint('Farmer store loading error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _farmerStores = [];
+        _isLoadingFarmers = false;
+        _farmerError = error.toString();
+      });
+    }
+  }
+
+  // --------------------------------------------------
+  // SEARCH AND FARMER GETTERS
+  // --------------------------------------------------
+
+  List<Map<String, dynamic>> get _visibleProducts {
+    if (_searchQuery.trim().isEmpty) {
+      return _products;
+    }
+
+    final query = _searchQuery.toLowerCase().trim();
+
+    return _products.where((product) {
+      final name = product['name'].toString().toLowerCase();
+      final farm = product['farm_name'].toString().toLowerCase();
+      final category = product['category_name'].toString().toLowerCase();
+      final origin = product['farm_origin'].toString().toLowerCase();
+
+      return name.contains(query) ||
+          farm.contains(query) ||
+          category.contains(query) ||
+          origin.contains(query);
     }).toList();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  List<Map<String, dynamic>> get _farmers => _farmerStores;
+
+  String _productImage(Map<String, dynamic> product) {
+    final image = product['image_url']?.toString().trim() ?? '';
+
+    if (image.isNotEmpty) {
+      return image;
+    }
+
+    return defaultFarmBanner;
   }
+
+  // Gets the farmer's own saved banner URL.
+  // Uses the default image only if the farmer has no banner.
+  String _getFarmBanner(Map<String, dynamic> farmer) {
+    final banner = farmer['banner_url']?.toString().trim() ?? '';
+
+    return banner.isNotEmpty ? banner : defaultFarmBanner;
+  }
+
+  // --------------------------------------------------
+  // NAVIGATION
+  // --------------------------------------------------
 
   void _goToPage(Widget page) {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, _, _) => page,
+        pageBuilder: (context, animation, secondaryAnimation) => page,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       ),
     );
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: darkGreen,
+  void _openFarmDetails({
+    required String sellerId,
+    required String farmName,
+    required String location,
+    String? avatarUrl,
+    String? bannerUrl,
+  }) {
+    if (sellerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open this farm. Farmer ID is missing.'),
         ),
       );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FarmDetailsScreen(
+          sellerId: sellerId,
+          farmName: farmName,
+          location: location,
+          rating: '0.0',
+          reviewCount: '0',
+          avatarUrl: avatarUrl ?? '',
+          bannerUrl: bannerUrl?.trim().isNotEmpty == true
+              ? bannerUrl!.trim()
+              : defaultFarmBanner,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        _loadFarmers();
+      }
+    });
   }
+
+  void _openProductDetails(Map<String, dynamic> product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductDetailsScreen(
+          title: product['name']?.toString() ?? 'Product',
+          price: (product['price'] as num?)?.toDouble() ?? 0,
+          unit: product['unit']?.toString() ?? 'unit',
+          imageUrl: _productImage(product),
+          productId: (product['id'] as num?)?.toInt(),
+          sellerId: product['seller_id']?.toString(),
+          stockQuantity: (product['stock_quantity'] as num?)?.toInt() ?? 0,
+          description: product['description']?.toString() ?? '',
+          category: product['category_name']?.toString() ?? 'Uncategorized',
+          farmName: product['farm_name']?.toString() ?? 'Local Farmer',
+          farmOrigin:
+              product['farm_origin']?.toString() ?? 'Location not provided',
+          isOrganic: product['is_organic'] == true,
+          deliveryDetails: product['delivery_details']?.toString() ?? '',
+        ),
+      ),
+    );
+  }
+
+  void _startBannerAutoScroll() {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!_bannerPageController.hasClients) return;
+
+      final nextIndex = (_currentBannerIndex + 1) % _saleBanners.length;
+
+      _bannerPageController.animateToPage(
+        nextIndex,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel();
+    _bannerPageController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // --------------------------------------------------
+  // MAIN SCREEN
+  // --------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -257,13 +448,15 @@ class _HomeScreenState extends State<HomeScreen> {
       value: const SystemUiOverlayStyle(
         statusBarColor: darkGreen,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.white,
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
+        extendBody: true,
         body: SafeArea(
           top: false,
+          bottom: false,
           child: ScrollConfiguration(
             behavior: const NoStretchScrollBehavior(),
             child: CustomScrollView(
@@ -272,37 +465,28 @@ class _HomeScreenState extends State<HomeScreen> {
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader()),
                 SliverToBoxAdapter(child: _buildSaleBanner()),
-                SliverToBoxAdapter(child: _buildSpecialOffers()),
                 SliverToBoxAdapter(child: _buildCategories()),
-                SliverToBoxAdapter(child: _buildProductSectionTitle()),
-
-                if (_filteredProducts.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text('No products found. Try another search.'),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            mainAxisExtent: 290,
-                          ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) =>
-                            _buildProductCard(_filteredProducts[index]),
-                        childCount: _filteredProducts.length,
-                      ),
-                    ),
+                SliverToBoxAdapter(child: _buildFreshlyHarvested()),
+                SliverToBoxAdapter(child: _buildFeaturedStores()),
+                SliverToBoxAdapter(child: _buildRecommendedHeader()),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 12,
+                          crossAxisSpacing: 12,
+                          mainAxisExtent: 250,
+                        ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      return _buildRecommendedCard(_visibleProducts[index]);
+                    }, childCount: _visibleProducts.length),
                   ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 14)),
+                ),
+                if (_visibleProducts.isEmpty)
+                  SliverToBoxAdapter(child: _buildEmptyProducts()),
+                const SliverToBoxAdapter(child: SizedBox(height: 120)),
               ],
             ),
           ),
@@ -312,11 +496,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --------------------------------------------------
+  // HEADER
+  // --------------------------------------------------
+
   Widget _buildHeader() {
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
-        MediaQuery.of(context).padding.top + 38,
+        MediaQuery.of(context).padding.top + 24,
         16,
         16,
       ),
@@ -329,32 +517,28 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const Expanded(
+                child: Row(
                   children: [
-                    const Text(
-                      'Good morning! 👋',
-                      style: TextStyle(color: Color(0xFFD7E9DC), fontSize: 16),
+                    Icon(
+                      Icons.location_on_outlined,
+                      color: Colors.white,
+                      size: 16,
                     ),
-                    const SizedBox(height: 3),
-
-                    Consumer<AuthProvider>(
-                      builder: (context, auth, child) {
-                        return Text(
-                          auth.fullName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 30,
-                          ),
-                        );
-                      },
+                    SizedBox(width: 6),
+                    Text(
+                      'Explore Local Farms',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
+                    SizedBox(width: 4),
+                    Icon(Icons.chevron_right, color: Colors.white70, size: 16),
                   ],
                 ),
               ),
-              // 2. CONNECTED MESSAGES SCREEN HERE
               Consumer<NotificationProvider>(
                 builder: (context, provider, _) => _headerAction(
                   Icons.chat_bubble_outline_rounded,
@@ -362,28 +546,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   badge: provider.unreadCount,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               _headerAction(
                 Icons.shopping_cart_outlined,
                 onTap: () => _goToPage(const CartScreen()),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Container(
-            height: 42,
+            height: 44,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
               controller: _searchController,
-              onChanged: (v) => setState(() => _searchQuery = v),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 hintText: 'Search products, farms, supplies...',
                 hintStyle: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 13,
                   color: Color(0xFF98A19B),
                 ),
                 prefixIcon: const Icon(
@@ -396,12 +584,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     : IconButton(
                         onPressed: () {
                           _searchController.clear();
-                          setState(() => _searchQuery = '');
+                          setState(() {
+                            _searchQuery = '';
+                          });
                         },
                         icon: const Icon(Icons.close, size: 17),
                       ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
@@ -425,31 +615,29 @@ class _HomeScreenState extends State<HomeScreen> {
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: SizedBox(
-              width: 34,
-              height: 34,
-              child: Icon(icon, color: Colors.white, size: 19),
+              width: 38,
+              height: 38,
+              child: Icon(icon, color: Colors.white, size: 20),
             ),
           ),
         ),
         if (badge > 0)
           Positioned(
-            right: -3,
-            top: -4,
+            right: -2,
+            top: -2,
             child: Container(
-              padding: const EdgeInsets.all(3),
-              constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+              padding: const EdgeInsets.all(4),
               decoration: const BoxDecoration(
                 color: Color(0xFFFF3D4F),
                 shape: BoxShape.circle,
               ),
-              child: Center(
-                child: Text(
-                  badge > 99 ? '99+' : '$badge',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
+              child: Text(
+                badge > 99 ? '99+' : '$badge',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  height: 1.0,
                 ),
               ),
             ),
@@ -458,93 +646,112 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --------------------------------------------------
+  // SALE BANNER
+  // --------------------------------------------------
+
   Widget _buildSaleBanner() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: SizedBox(
           height: 120,
           child: Stack(
-            fit: StackFit.expand,
             children: [
-              Image.network(
-                'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200',
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    Container(color: const Color(0xFF2B8A4A)),
-              ),
-              Container(color: primaryGreen.withValues(alpha: 0.82)),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 12, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '🌾 Harvest Season Sale',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
+              PageView.builder(
+                controller: _bannerPageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentBannerIndex = index;
+                  });
+                },
+                itemCount: _saleBanners.length,
+                itemBuilder: (context, index) {
+                  final banner = _saleBanners[index];
+
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        banner['image'] as String,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) {
+                          return Container(color: const Color(0xFF2B8A4A));
+                        },
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Up to 30% off fresh produce',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => _goToPage(const MarketplaceScreen()),
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: darkGreen,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 15,
-                          vertical: 7,
+                      Container(color: primaryGreen.withValues(alpha: 0.22)),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              banner['title'] as String,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              banner['subtitle'] as String,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () =>
+                                  _goToPage(const MarketplaceScreen()),
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: darkGreen,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: const StadiumBorder(),
+                              ),
+                              child: Text(
+                                banner['buttonText'] as String,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: const StadiumBorder(),
                       ),
-                      child: const Text(
-                        'Shop Now',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  );
+                },
               ),
               Positioned(
-                right: 14,
-                bottom: 10,
+                right: 16,
+                bottom: 12,
                 child: Row(
-                  children: [
-                    Container(
-                      width: 14,
+                  children: List.generate(
+                    _saleBanners.length,
+                    (index) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.only(left: 4),
+                      width: _currentBannerIndex == index ? 16 : 5,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: _currentBannerIndex == index
+                            ? Colors.white
+                            : Colors.white54,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    ...List.generate(
-                      2,
-                      (_) => Container(
-                        margin: const EdgeInsets.only(right: 4),
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.white54,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -554,206 +761,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSpecialOffers() {
-    final offers = [
-      {
-        'tag': 'LIMITED-TIME DEAL',
-        'title': 'Fresh from Local Farms!',
-        'subtitle': 'Enjoy special deals on fresh produce and agricultural',
-        'image': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600',
-      },
-      {
-        'tag': 'WELCOME OFFER',
-        'title': 'Welcome to AgriMart!',
-        'subtitle': 'Shop fresh produce and farming supplies directly from',
-        'image':
-            'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600',
-      },
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 9),
-          child: Row(
-            children: const [
-              Icon(Icons.sell_outlined, color: primaryGreen, size: 14),
-              SizedBox(width: 6),
-              Text(
-                'Special Offers',
-                style: TextStyle(
-                  color: ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 146,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            physics: const ClampingScrollPhysics(),
-            itemCount: offers.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final offer = offers[i];
-              return Container(
-                width: (MediaQuery.of(context).size.width - 42) / 2,
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8ECE8)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 5,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: 66,
-                      width: double.infinity,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            offer['image']!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                Container(color: const Color(0xFF39844B)),
-                          ),
-                          Container(
-                            color: primaryGreen.withValues(alpha: 0.55),
-                          ),
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Container(
-                              margin: const EdgeInsets.all(7),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.94),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                '🌿 ${offer['tag']}',
-                                style: const TextStyle(
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                  color: darkGreen,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(6, 7, 6, 5),
-                      child: Column(
-                        children: [
-                          Text(
-                            offer['title']!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: ink,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            offer['subtitle']!,
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 8,
-                              height: 1.2,
-                              color: Color(0xFF778078),
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          GestureDetector(
-                            onTap: () => _goToPage(const MarketplaceScreen()),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: primaryGreen,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: const Text(
-                                'Shop Now',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
+  // --------------------------------------------------
+  // CATEGORIES
+  // --------------------------------------------------
 
   Widget _buildCategories() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
-                child: Text(
-                  'Popular Categories',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                  ),
+              const Text(
+                'Popular Categories',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
                 ),
               ),
-              TextButton(
-                onPressed: () => _goToPage(const CategoriesScreen()),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+              GestureDetector(
+                onTap: () => _goToPage(const CategoriesScreen()),
                 child: const Row(
                   children: [
                     Text(
                       'See all',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         color: primaryGreen,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: primaryGreen, size: 15),
+                    Icon(Icons.chevron_right, color: primaryGreen, size: 16),
                   ],
                 ),
               ),
@@ -761,453 +802,710 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _categories.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 4,
-              mainAxisSpacing: 8,
-              mainAxisExtent: 62,
-            ),
-            itemBuilder: (context, index) {
-              final category = _categories[index];
-              final selected = _selectedCategory == category['name'];
-              return InkWell(
-                onTap: () => setState(
-                  () => _selectedCategory = selected
-                      ? 'All'
-                      : category['name'] as String,
-                ),
-                borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: _categories.map((category) {
+              return GestureDetector(
+                onTap: () => _goToPage(const CategoriesScreen()),
                 child: Column(
                   children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(13),
-                        border: selected
-                            ? Border.all(color: primaryGreen, width: 2)
-                            : null,
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Image.network(
-                        category['image']!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: const Color(0xFFE6EFE6),
-                          child: const Icon(Icons.eco, color: primaryGreen),
-                        ),
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: const Color(0xFFE8ECE8),
+                      backgroundImage: NetworkImage(
+                        category['image'] as String,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 8),
                     Text(
-                      category['name']!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: selected
-                            ? FontWeight.bold
-                            : FontWeight.w500,
-                        color: selected
-                            ? primaryGreen
-                            : const Color(0xFF4F5A52),
+                      category['name'] as String,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: ink,
                       ),
                     ),
                   ],
                 ),
               );
-            },
+            }).toList(),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildProductSectionTitle() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _selectedCategory == 'All'
-                  ? 'Recommended For You'
-                  : _selectedCategory,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: ink,
+  // --------------------------------------------------
+  // FEATURED FARM STORES
+  // --------------------------------------------------
+
+  Widget _buildFeaturedStores() {
+    final farmers = _farmers;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Featured Farm Stores',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
+                ),
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => _goToPage(const MarketplaceScreen()),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Row(
-              children: [
-                Text(
-                  'See all',
-                  style: TextStyle(fontSize: 10, color: primaryGreen),
-                ),
-                Icon(Icons.chevron_right, size: 15, color: primaryGreen),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  // PRODUCT CARD (MATCHING MARKETPLACE SCREEN)
-  // ==============================================
-
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    final List badges = product['badges'] ?? [];
-    final List bottomBadges = product['bottomBadges'] ?? [];
-
-    return Container(
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECE8)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // IMAGE & BADGES
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.network(
-                  product['image'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      Container(color: const Color(0xFFE8F0E7)),
-                ),
-                // Discount Badge (Top Left)
-                if (product['discount'] != null)
-                  Positioned(
-                    left: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF3D4F),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        product['discount'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Top Right Badges (e.g. Organic)
-                if (badges.isNotEmpty)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Row(
-                      children: badges.map((badge) {
-                        return Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: darkGreen,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            badge.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                // Bottom Badges (e.g. Fresh Harvest, Wholesale)
-                if (bottomBadges.isNotEmpty)
-                  Positioned(
-                    left: 8,
-                    bottom: 8,
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: bottomBadges.map((badge) {
-                        bool isFresh = badge == 'Fresh harvest';
-                        bool isPreorder = badge == 'Pre-order';
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isFresh
-                                ? primaryGreen
-                                : (isPreorder
-                                      ? const Color(0xFFFFF3E0)
-                                      : Colors.white),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            badge.toString(),
-                            style: TextStyle(
-                              color: isFresh
-                                  ? Colors.white
-                                  : (isPreorder
-                                        ? const Color(0xFFE65100)
-                                        : darkGreen),
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // DETAILS SECTION
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Text(
-                  product['name'],
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: ink,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-
-                // Rating
-                Row(
+              GestureDetector(
+                onTap: () => _goToPage(const MarketplaceScreen()),
+                child: const Row(
                   children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFFFB300),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
                     Text(
-                      '${product['rating'] ?? '4.8'} (${product['reviews'] ?? '100'})',
-                      style: const TextStyle(fontSize: 10, color: mutedText),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-
-                // Location
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      color: mutedText,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        product['location'] ?? 'Local seller',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 9, color: mutedText),
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: primaryGreen,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    Icon(Icons.chevron_right, color: primaryGreen, size: 16),
                   ],
                 ),
-                const SizedBox(height: 12),
+              ),
+            ],
+          ),
+        ),
 
-                // Price & Add Button Row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
+        if (_isLoadingFarmers)
+          _sectionMessage('Loading farmer stores...')
+        else if (_farmerError != null)
+          _sectionMessage(
+            'Unable to load farmer stores.',
+            onRetry: _loadFarmers,
+          )
+        else if (farmers.isEmpty)
+          _sectionMessage('No farmer stores available yet.')
+        else
+          SizedBox(
+            height: 165,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: farmers.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final farmer = farmers[index];
+
+                final sellerId = farmer['seller_id']?.toString() ?? '';
+
+                final farmName = farmer['name']?.toString() ?? 'Local Farmer';
+
+                final location =
+                    farmer['location']?.toString() ?? 'Location not provided';
+
+                final avatar = farmer['avatar']?.toString().trim() ?? '';
+
+                final banner = _getFarmBanner(farmer);
+
+                return SizedBox(
+                  width: 155,
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _openFarmDetails(
+                        sellerId: sellerId,
+                        farmName: farmName,
+                        location: location,
+                        avatarUrl: avatar,
+                        bannerUrl: banner,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          RichText(
-                            text: TextSpan(
+                          Image.network(
+                            banner,
+                            height: 65,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) =>
+                                _farmPlaceholder(height: 65),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(9),
+                            child: Row(
                               children: [
-                                const TextSpan(
-                                  text: '₱',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: darkGreen,
-                                  ),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: avatar.isNotEmpty
+                                      ? Image.network(
+                                          avatar,
+                                          width: 35,
+                                          height: 35,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) =>
+                                              _farmAvatarPlaceholder(),
+                                        )
+                                      : _farmAvatarPlaceholder(),
                                 ),
-                                TextSpan(
-                                  text: '${(product['price'] as num).toInt()}',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: darkGreen,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: product['unit'] ?? '/kg',
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    color: mutedText,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        farmName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: ink,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        location,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          color: mutedText,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        '${farmer['product_count']} products',
+                                        style: const TextStyle(
+                                          fontSize: 9,
+                                          color: primaryGreen,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          if (product['originalPrice'] != null)
-                            Text(
-                              '₱${(product['originalPrice'] as num).toInt()}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: mutedText,
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
                         ],
                       ),
                     ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 
-                    // Add Button Pill
-                    Material(
-                      color: const Color(0xFF2DB05F),
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: () =>
-                            _showMessage('Added ${product['name']} to cart'),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          child: Text(
-                            '+ Add',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+  Widget _farmAvatarPlaceholder() {
+    return Container(
+      width: 35,
+      height: 35,
+      color: const Color(0xFFE8F0E7),
+      child: const Icon(Icons.person, color: primaryGreen, size: 22),
+    );
+  }
+
+  // --------------------------------------------------
+  // FRESHLY HARVESTED
+  // --------------------------------------------------
+
+  Widget _buildFreshlyHarvested() {
+    final products = _visibleProducts;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 28, 16, 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Freshly Harvested',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _goToPage(const MarketplaceScreen()),
+                child: const Row(
+                  children: [
+                    Text(
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: primaryGreen,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    Icon(Icons.chevron_right, color: primaryGreen, size: 16),
                   ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Products published by farmers',
+                style: TextStyle(fontSize: 9, color: mutedText),
+              ),
+              if (!_isLoadingProducts)
+                Text(
+                  '${products.length} products',
+                  style: const TextStyle(
+                    fontSize: 9,
+                    color: primaryGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (_isLoadingProducts)
+          _sectionMessage('Loading farmer products...')
+        else if (products.isEmpty)
+          _sectionMessage(
+            _productError != null
+                ? 'Unable to load products. Please try again.'
+                : 'No active farmer products available yet.',
+            onRetry: _loadProducts,
+          )
+        else
+          SizedBox(
+            height: 200,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              itemCount: products.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                return _buildFreshProductCard(products[index]);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFreshProductCard(Map<String, dynamic> product) {
+    return Container(
+      width: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECE8)),
+      ),
+      child: InkWell(
+        onTap: () => _openProductDetails(product),
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
+                  ),
+                  child: Image.network(
+                    _productImage(product),
+                    height: 90,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _productPlaceholder(),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryGreen,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.eco_outlined, color: Colors.white, size: 10),
+                        SizedBox(width: 2),
+                        Text(
+                          'Fresh',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name'].toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '₱${(product['price'] as num).toStringAsFixed(2)} / ${product['unit']}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: darkGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    product['farm_name'].toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 8,
+                      color: primaryGreen,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${product['stock_quantity']} ${product['unit']} available',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 8, color: mutedText),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // RECOMMENDED PRODUCTS
+  // --------------------------------------------------
+
+  Widget _buildRecommendedHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Recommended for You',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: ink,
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _goToPage(const MarketplaceScreen()),
+                child: const Row(
+                  children: [
+                    Text(
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: primaryGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: primaryGreen, size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Explore available products from farmers',
+            style: TextStyle(fontSize: 9, color: mutedText),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBottomNavigation() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
+  Widget _buildRecommendedCard(Map<String, dynamic> product) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8ECE8)),
+      ),
+      child: InkWell(
+        onTap: () => _openProductDetails(product),
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _navItem(
-              Icons.home_outlined,
-              Icons.home_rounded,
-              'Home',
-              true,
-              () {},
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
+                  ),
+                  child: Image.network(
+                    _productImage(product),
+                    height: 110,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _productPlaceholder(),
+                  ),
+                ),
+                if (product['is_organic'] == true)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: primaryGreen,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'ORGANIC',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            _navItem(
-              Icons.grid_view_outlined,
-              Icons.grid_view_rounded,
-              'Categories',
-              false,
-              () => _goToPage(const CategoriesScreen()),
-            ),
-            _navItem(
-              Icons.storefront_outlined,
-              Icons.storefront_rounded,
-              'Marketplace',
-              false,
-              () => _goToPage(const MarketplaceScreen()),
-            ),
-            Consumer<NotificationProvider>(
-              builder: (context, provider, _) => _navItem(
-                Icons.notifications_none_rounded,
-                Icons.notifications_rounded,
-                'Notifications',
-                false,
-                () => _goToPage(const NotificationScreen()),
-                badge: provider.unreadCount,
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name'].toString(),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: ink,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '₱${(product['price'] as num).toStringAsFixed(2)} / ${product['unit']}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: primaryGreen,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    product['farm_name'].toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 8,
+                      color: primaryGreen,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${product['stock_quantity']} ${product['unit']} available',
+                    style: const TextStyle(fontSize: 8, color: mutedText),
+                  ),
+                ],
               ),
             ),
-            _navItem(
-              Icons.person_outline_rounded,
-              Icons.person_rounded,
-              'Me',
-              false,
-              () => _goToPage(const ProfileScreen()),
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // EMPTY / LOADING STATES
+  // --------------------------------------------------
+
+  Widget _buildEmptyProducts() {
+    if (_isLoadingProducts) {
+      return const Padding(
+        padding: EdgeInsets.all(30),
+        child: Center(child: CircularProgressIndicator(color: primaryGreen)),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 24),
+      child: Column(
+        children: [
+          const Icon(Icons.inventory_2_outlined, size: 42, color: Colors.grey),
+          const SizedBox(height: 10),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'No products match your search.'
+                : 'No active products available yet.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: mutedText, fontSize: 12),
+          ),
+          if (_searchQuery.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                });
+              },
+              child: const Text('Clear search'),
+            ),
+          if (_productError != null)
+            TextButton.icon(
+              onPressed: _loadProducts,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionMessage(String message, {VoidCallback? onRetry}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 11, color: mutedText),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
+  Widget _farmPlaceholder({double height = 60}) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      color: const Color(0xFFE8F0E7),
+      child: const Icon(Icons.agriculture, color: primaryGreen, size: 28),
+    );
+  }
+
+  Widget _productPlaceholder() {
+    return Container(
+      height: 110,
+      width: double.infinity,
+      color: const Color(0xFFE8F0E7),
+      child: const Icon(Icons.eco, color: primaryGreen, size: 32),
+    );
+  }
+
+  // --------------------------------------------------
+  // BOTTOM NAVIGATION
+  // --------------------------------------------------
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _navItem(Icons.home_filled, 'Home', true, () {}),
+          _navItem(
+            Icons.grid_view_rounded,
+            'Categories',
+            false,
+            () => _goToPage(const CategoriesScreen()),
+          ),
+          _navItem(
+            Icons.storefront_outlined,
+            'Marketplace',
+            false,
+            () => _goToPage(const MarketplaceScreen()),
+          ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) => _navItem(
+              Icons.notifications_none_rounded,
+              'Notifications',
+              false,
+              () => _goToPage(const NotificationScreen()),
+              badge: provider.unreadCount,
+            ),
+          ),
+          _navItem(
+            Icons.person_outline_rounded,
+            'Me',
+            false,
+            () => _goToPage(const ProfileScreen()),
+          ),
+        ],
       ),
     );
   }
 
   Widget _navItem(
     IconData icon,
-    IconData activeIcon,
     String label,
     bool selected,
     VoidCallback onTap, {
@@ -1216,9 +1514,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+        borderRadius: BorderRadius.circular(24),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFE8F5E9) : Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1226,32 +1529,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 clipBehavior: Clip.none,
                 children: [
                   Icon(
-                    selected ? activeIcon : icon,
-                    size: 19,
+                    icon,
+                    size: 20,
                     color: selected ? primaryGreen : const Color(0xFF9AA39B),
                   ),
                   if (badge > 0)
                     Positioned(
-                      right: -7,
-                      top: -6,
+                      right: -4,
+                      top: -2,
                       child: Container(
-                        padding: const EdgeInsets.all(2),
-                        constraints: const BoxConstraints(
-                          minWidth: 13,
-                          minHeight: 13,
-                        ),
+                        padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                           color: Color(0xFFFF3D4F),
                           shape: BoxShape.circle,
                         ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 7,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        child: Text(
+                          badge > 99 ? '99+' : '$badge',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 7,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
                           ),
                         ),
                       ),
@@ -1264,8 +1562,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
                   color: selected ? primaryGreen : const Color(0xFF929B94),
                 ),
               ),

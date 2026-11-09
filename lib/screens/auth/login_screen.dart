@@ -337,43 +337,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     const SizedBox(height: 24),
-
-                    const Divider(color: Color(0xFFE2E8E4)),
-                    const SizedBox(height: 16),
-
-                    // SELLER DASHBOARD
-                    const Center(
-                      child: Text(
-                        'Are you a farmer or seller?',
-                        style: TextStyle(color: mutedText, fontSize: 11),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 44,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _showMessage(
-                            'Please log in using your registered farmer account.',
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: primaryGreen,
-                          side: const BorderSide(color: primaryGreen),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Access Seller Dashboard',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),
