@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductCatalogService {
@@ -34,7 +35,7 @@ class ProductCatalogService {
     return _attachProductDetails(response);
   }
 
-  // Fetch products belonging to a particular farmer.
+  // Fetch active products belonging to a particular farmer.
   Future<List<Map<String, dynamic>>> fetchFarmerProducts(
     String sellerId,
   ) async {
@@ -52,39 +53,47 @@ class ProductCatalogService {
   Future<List<Map<String, dynamic>>> _attachProductDetails(
     List<dynamic> response,
   ) async {
-    final products = List<Map<String, dynamic>>.from(
-      response.map((item) => Map<String, dynamic>.from(item)),
-    );
+    final products = response
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
 
     if (products.isEmpty) {
       return [];
     }
 
+    // Collect product IDs.
     final productIds = products
         .map((product) => product['id'])
         .where((id) => id != null)
         .toList();
 
+    // Collect unit IDs.
     final unitIds = products
         .map((product) => product['unit_id'])
         .where((id) => id != null)
         .toSet()
         .toList();
 
+    // Collect category IDs.
     final categoryIds = products
         .map((product) => product['category_id'])
         .where((id) => id != null)
         .toSet()
         .toList();
 
+    // Collect seller IDs as strings.
     final sellerIds = products
-        .map((product) => product['seller_id'])
-        .where((id) => id != null)
+        .map((product) => product['seller_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
         .toSet()
         .toList();
 
-    // Product images.
-    final Map<dynamic, List<String>> imagesByProductId = {};
+    // -----------------------------------------
+    // PRODUCT IMAGES
+    // -----------------------------------------
+
+    final Map<String, List<String>> imagesByProductId = {};
 
     if (productIds.isNotEmpty) {
       final imageResponse = await _client
@@ -94,18 +103,23 @@ class ProductCatalogService {
           .order('display_order', ascending: true);
 
       for (final image in imageResponse) {
-        final productId = image['product_id'];
+        final productId = image['product_id']?.toString();
         final imageUrl = image['image_url']?.toString();
 
-        if (productId != null && imageUrl != null && imageUrl.isNotEmpty) {
+        if (productId != null &&
+            imageUrl != null &&
+            imageUrl.trim().isNotEmpty) {
           imagesByProductId.putIfAbsent(productId, () => []);
           imagesByProductId[productId]!.add(imageUrl);
         }
       }
     }
 
-    // Unit names.
-    final Map<dynamic, String> unitNameById = {};
+    // -----------------------------------------
+    // UNIT NAMES
+    // -----------------------------------------
+
+    final Map<String, String> unitNameById = {};
 
     if (unitIds.isNotEmpty) {
       final unitResponse = await _client
@@ -114,14 +128,19 @@ class ProductCatalogService {
           .inFilter('id', unitIds);
 
       for (final unit in unitResponse) {
-        if (unit['id'] != null) {
-          unitNameById[unit['id']] = unit['name']?.toString() ?? 'unit';
+        final id = unit['id']?.toString();
+
+        if (id != null) {
+          unitNameById[id] = unit['name']?.toString() ?? 'unit';
         }
       }
     }
 
-    // Category names.
-    final Map<dynamic, String> categoryNameById = {};
+    // -----------------------------------------
+    // CATEGORY NAMES
+    // -----------------------------------------
+
+    final Map<String, String> categoryNameById = {};
 
     if (categoryIds.isNotEmpty) {
       final categoryResponse = await _client
@@ -130,14 +149,19 @@ class ProductCatalogService {
           .inFilter('id', categoryIds);
 
       for (final category in categoryResponse) {
-        if (category['id'] != null) {
-          categoryNameById[category['id']] =
+        final id = category['id']?.toString();
+
+        if (id != null) {
+          categoryNameById[id] =
               category['name']?.toString() ?? 'Uncategorized';
         }
       }
     }
 
-    // Farmer profiles.
+    // -----------------------------------------
+    // FARMER PROFILES
+    // -----------------------------------------
+
     final Map<String, Map<String, dynamic>> farmerByUserId = {};
 
     if (sellerIds.isNotEmpty) {
@@ -152,17 +176,24 @@ class ProductCatalogService {
       for (final farmer in farmerResponse) {
         final userId = farmer['user_id']?.toString();
 
-        if (userId != null) {
+        if (userId != null && userId.isNotEmpty) {
           farmerByUserId[userId] = Map<String, dynamic>.from(farmer);
         }
       }
+
+      // Diagnostic information for debugging.
+      debugPrint('Product sellers found: ${sellerIds.length}');
+      debugPrint('Farmer profiles found: ${farmerByUserId.length}');
     }
 
-    // Attach all retrieved information to each product.
+    // -----------------------------------------
+    // ATTACH INFORMATION TO PRODUCTS
+    // -----------------------------------------
+
     return products.map((product) {
-      final productId = product['id'];
-      final unitId = product['unit_id'];
-      final categoryId = product['category_id'];
+      final productId = product['id']?.toString();
+      final unitId = product['unit_id']?.toString();
+      final categoryId = product['category_id']?.toString();
       final sellerId = product['seller_id']?.toString();
 
       final farmer = sellerId == null
@@ -170,6 +201,12 @@ class ProductCatalogService {
           : farmerByUserId[sellerId] ?? <String, dynamic>{};
 
       final productImages = imagesByProductId[productId] ?? <String>[];
+
+      final farmerName = farmer['full_name']?.toString().trim() ?? '';
+
+      final farmName = farmer['farm_name']?.toString().trim() ?? '';
+
+      final farmOrigin = farmer['farm_origin']?.toString().trim() ?? '';
 
       return <String, dynamic>{
         ...product,
@@ -183,9 +220,11 @@ class ProductCatalogService {
         'category_name': categoryNameById[categoryId] ?? 'Uncategorized',
 
         // Farmer information.
-        'farmer_name': farmer['full_name'] ?? 'Farmer',
-        'farm_name': farmer['farm_name'] ?? 'Farm',
-        'farm_origin': farmer['farm_origin'] ?? 'Location not provided',
+        'farmer_name': farmerName.isNotEmpty ? farmerName : 'Farmer',
+        'farm_name': farmName.isNotEmpty ? farmName : 'Farm',
+        'farm_origin': farmOrigin.isNotEmpty
+            ? farmOrigin
+            : 'Location not provided',
         'farmer_bio': farmer['bio'],
         'farmer_contact': farmer['contact_number'],
         'farmer_avatar': farmer['avatar_url'],

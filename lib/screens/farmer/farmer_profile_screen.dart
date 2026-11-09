@@ -1,284 +1,599 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../consumer/home_screen.dart';
 
-class FarmerProfileScreen extends StatelessWidget {
+class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
 
-  static const Color primaryColor = Colors.green;
-  static const Color backgroundColor = Color(0xFFF7F9F7);
+  @override
+  State<FarmerProfileScreen> createState() => _FarmerProfileScreenState();
+}
 
-  Future<void> _confirmLogout(BuildContext context) async {
+class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  final _formKey = GlobalKey<FormState>();
+
+  final _fullNameController = TextEditingController();
+  final _farmNameController = TextEditingController();
+  final _farmOriginController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _contactController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isEditing = false;
+
+  String? _avatarUrl;
+  String? _bannerUrl;
+
+  File? _avatarFile;
+  File? _bannerFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _farmNameController.dispose();
+    _farmOriginController.dispose();
+    _bioController.dispose();
+    _contactController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  User? get _user => _supabase.auth.currentUser;
+
+  Future<void> _loadProfile() async {
+    final user = _user;
+
+    if (user == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    try {
+      final response = await _supabase
+          .from('farmer_profiles')
+          .select()
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      final metadata = user.userMetadata ?? {};
+
+      if (!mounted) return;
+
+      setState(() {
+        _fullNameController.text =
+            response?['full_name'] ??
+            metadata['full_name'] ??
+            metadata['name'] ??
+            '';
+
+        _farmNameController.text =
+            response?['farm_name'] ?? metadata['farm_name'] ?? '';
+
+        _farmOriginController.text = response?['farm_origin'] ?? '';
+
+        _bioController.text = response?['bio'] ?? '';
+
+        _contactController.text =
+            response?['contact_number'] ??
+            metadata['mobile'] ??
+            metadata['phone'] ??
+            '';
+
+        _emailController.text = user.email ?? '';
+
+        _avatarUrl = response?['avatar_url'];
+        _bannerUrl = response?['banner_url'];
+
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+      _showMessage('Unable to load profile: $e', isError: true);
+    }
+  }
+
+  Future<void> _pickImage({required bool isBanner}) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (pickedFile == null || !mounted) return;
+
+      setState(() {
+        if (isBanner) {
+          _bannerFile = File(pickedFile.path);
+        } else {
+          _avatarFile = File(pickedFile.path);
+        }
+      });
+    } catch (e) {
+      _showMessage('Unable to select image: $e', isError: true);
+    }
+  }
+
+  Future<String?> _uploadImage(File? file, String folder) async {
+    if (file == null) {
+      return folder == 'avatar' ? _avatarUrl : _bannerUrl;
+    }
+
+    final user = _user;
+    if (user == null) return null;
+
+    final extension = file.path.split('.').last.toLowerCase();
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+    final path = '${user.id}/$folder/$fileName';
+
+    await _supabase.storage.from('farmer-images').upload(path, file);
+
+    return _supabase.storage.from('farmer-images').getPublicUrl(path);
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = _user;
+
+    if (user == null) {
+      _showMessage('Please log in again.', isError: true);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final newAvatarUrl = await _uploadImage(_avatarFile, 'avatar');
+
+      final newBannerUrl = await _uploadImage(_bannerFile, 'banner');
+
+      await _supabase.from('farmer_profiles').upsert({
+        'user_id': user.id,
+        'full_name': _fullNameController.text.trim(),
+        'farm_name': _farmNameController.text.trim(),
+        'farm_origin': _farmOriginController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'contact_number': _contactController.text.trim(),
+        'avatar_url': newAvatarUrl,
+        'banner_url': newBannerUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+
+      if (!mounted) return;
+
+      setState(() {
+        _avatarUrl = newAvatarUrl;
+        _bannerUrl = newBannerUrl;
+        _avatarFile = null;
+        _bannerFile = null;
+        _isEditing = false;
+        _isSaving = false;
+      });
+
+      _showMessage('Farmer profile updated successfully!');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isSaving = false);
+      _showMessage('Failed to save profile: $e', isError: true);
+    }
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+      _avatarFile = null;
+      _bannerFile = null;
+      _isLoading = true;
+    });
+
+    _loadProfile();
+  }
+
+  Future<void> _confirmLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text(
-          'Are you sure you want to log out of your account?',
-        ),
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Log Out'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
 
-    if (shouldLogout != true || !context.mounted) return;
+    if (shouldLogout != true || !mounted) return;
 
-    final auth = context.read<AuthProvider>();
+    try {
+      await context.read<AuthProvider>().logout();
 
-    await auth.logout();
+      if (!mounted) return;
 
-    if (!context.mounted) return;
-
-    if (auth.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            auth.errorMessage ?? 'Logout failed. Please try again.',
-          ),
-        ),
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
       );
-      return;
+    } catch (e) {
+      _showMessage('Logout failed: $e', isError: true);
     }
+  }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+  void _goToConsumerDashboard() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }
 
-  void _goToConsumerDashboard(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    bool readOnly = false,
+    String? hint,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        readOnly: readOnly || !_isEditing,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+        ),
+        validator: (value) {
+          if (label == 'Full Name' || label == 'Farm Name') {
+            if (value == null || value.trim().isEmpty) {
+              return '$label is required';
+            }
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildBanner() {
+    ImageProvider? image;
+
+    if (_bannerFile != null) {
+      image = FileImage(_bannerFile!);
+    } else if (_bannerUrl != null && _bannerUrl!.isNotEmpty) {
+      image = NetworkImage(_bannerUrl!);
+    }
+
+    return Stack(
+      children: [
+        Container(
+          height: 190,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.green.shade100,
+            image: image != null
+                ? DecorationImage(image: image, fit: BoxFit.cover)
+                : null,
+          ),
+          child: image == null
+              ? const Center(
+                  child: Icon(Icons.landscape, size: 65, color: Colors.green),
+                )
+              : null,
+        ),
+        if (_isEditing)
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: ElevatedButton.icon(
+              onPressed: () => _pickImage(isBanner: true),
+              icon: const Icon(Icons.camera_alt),
+              label: const Text('Change Banner'),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAvatar() {
+    ImageProvider? image;
+
+    if (_avatarFile != null) {
+      image = FileImage(_avatarFile!);
+    } else if (_avatarUrl != null && _avatarUrl!.isNotEmpty) {
+      image = NetworkImage(_avatarUrl!);
+    }
+
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 55,
+          backgroundColor: Colors.green.shade100,
+          backgroundImage: image,
+          child: image == null
+              ? const Icon(Icons.person, size: 60, color: Colors.green)
+              : null,
+        ),
+        if (_isEditing)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: InkWell(
+              onTap: () => _pickImage(isBanner: false),
+              child: const CircleAvatar(
+                radius: 19,
+                backgroundColor: Colors.green,
+                child: Icon(Icons.camera_alt, size: 19, color: Colors.white),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
-          'My Profile',
+          'Farmer Profile',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: primaryColor,
+        backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (!_isLoading)
+            IconButton(
+              onPressed: _isEditing
+                  ? _cancelEditing
+                  : () => setState(() => _isEditing = true),
+              icon: Icon(_isEditing ? Icons.close : Icons.edit),
+              tooltip: _isEditing ? 'Cancel' : 'Edit Profile',
+            ),
+        ],
       ),
-      body: Consumer<AuthProvider>(
-        builder: (context, auth, child) {
-          final currentUser = auth.currentUser;
-          final metadata = currentUser?.userMetadata;
-
-          final email = currentUser?.email ?? 'Not provided';
-
-          final mobile =
-              metadata?['mobile']?.toString() ??
-              metadata?['phone']?.toString() ??
-              'Not provided';
-
-          final farmName =
-              metadata?['farm_name']?.toString() ??
-              metadata?['farmName']?.toString() ??
-              'Not provided';
-
-          return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.green))
+          : SingleChildScrollView(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
+                  _buildBanner(),
 
-                  // Profile header
-                  Center(
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundColor: Colors.green.shade100,
-                          child: const Icon(
-                            Icons.person,
-                            size: 52,
-                            color: primaryColor,
+                  Transform.translate(
+                    offset: const Offset(0, -45),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          _buildAvatar(),
+
+                          const SizedBox(height: 12),
+
+                          Text(
+                            _farmNameController.text.isEmpty
+                                ? 'Your Farm'
+                                : _farmNameController.text,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          auth.fullName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          email,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
+
+                          const SizedBox(height: 5),
+
+                          Text(
                             'Farmer Account',
                             style: TextStyle(
-                              color: primaryColor,
+                              color: Colors.green.shade700,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(height: 32),
+                          const SizedBox(height: 25),
 
-                  const Text(
-                    'Account Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 14),
+                          Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Personal Information',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
 
-                  _ProfileInfoTile(
-                    icon: Icons.person_outline,
-                    title: 'Full Name',
-                    value: auth.fullName,
-                  ),
-                  _ProfileInfoTile(
-                    icon: Icons.email_outlined,
-                    title: 'Email Address',
-                    value: email,
-                  ),
-                  _ProfileInfoTile(
-                    icon: Icons.phone_outlined,
-                    title: 'Mobile Number',
-                    value: mobile,
-                  ),
-                  _ProfileInfoTile(
-                    icon: Icons.store_outlined,
-                    title: 'Farm Name',
-                    value: farmName,
-                  ),
-                  const SizedBox(height: 24),
+                                const SizedBox(height: 15),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        debugPrint('Back to Consumer Home button tapped');
-                        _goToConsumerDashboard(context);
-                      },
-                      icon: const Icon(Icons.shopping_bag_outlined),
-                      label: const Text('Back to Consumer Home'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade700,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 56),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                                _buildTextField(
+                                  label: 'Full Name',
+                                  controller: _fullNameController,
+                                ),
+
+                                _buildTextField(
+                                  label: 'Email Address',
+                                  controller: _emailController,
+                                  readOnly: true,
+                                  keyboardType: TextInputType.emailAddress,
+                                ),
+
+                                _buildTextField(
+                                  label: 'Contact Number',
+                                  controller: _contactController,
+                                  keyboardType: TextInputType.phone,
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                const Text(
+                                  'Farm Information',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+
+                                const SizedBox(height: 15),
+
+                                _buildTextField(
+                                  label: 'Farm Name',
+                                  controller: _farmNameController,
+                                ),
+
+                                _buildTextField(
+                                  label: 'Farm Location',
+                                  controller: _farmOriginController,
+                                  hint: 'Enter your farm location',
+                                ),
+
+                                _buildTextField(
+                                  label: 'Farm Description',
+                                  controller: _bioController,
+                                  maxLines: 4,
+                                  hint: 'Tell customers about your farm...',
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                if (_isEditing)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 50,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isSaving
+                                          ? null
+                                          : _saveProfile,
+                                      icon: _isSaving
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Icon(Icons.save),
+                                      label: Text(
+                                        _isSaving
+                                            ? 'Saving...'
+                                            : 'Save Changes',
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                const SizedBox(height: 12),
+
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _goToConsumerDashboard,
+                                    icon: const Icon(Icons.storefront),
+                                    label: const Text('Back to Consumer Home'),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _confirmLogout,
+                                    icon: const Icon(
+                                      Icons.logout,
+                                      color: Colors.red,
+                                    ),
+                                    label: const Text(
+                                      'Logout',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Colors.red),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // Logout button
-                  OutlinedButton.icon(
-                    onPressed: auth.isLoading
-                        ? null
-                        : () => _confirmLogout(context),
-                    icon: const Icon(Icons.logout),
-                    label: Text(auth.isLoading ? 'Logging out...' : 'Log Out'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ProfileInfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  const _ProfileInfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.green.shade700),
-        title: Text(
-          title,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-          ),
-        ),
-      ),
     );
   }
 }
