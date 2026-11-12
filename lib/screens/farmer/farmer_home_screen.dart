@@ -5,6 +5,11 @@ import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'add_product_screen.dart';
 import 'edit_product_screen.dart';
+import 'farmer_orders_screen.dart';   // Replace with your actual Orders screen filename
+import 'farmer_profile_screen.dart';  // Replace with your actual Profile screen filename
+
+typedef JsonMap = Map<String, dynamic>;
+typedef JsonList = List<JsonMap>;
 
 const Color agriGreen = Color(0xFF2E7D32);
 const Color agriDarkGreen = Color(0xFF1B5E20);
@@ -19,6 +24,7 @@ class FarmerHome extends StatefulWidget {
 
 class _FarmerHomeState extends State<FarmerHome> {
   int _selectedIndex = 0;
+
   final List<String> _titles = const [
     'Farmer Dashboard',
     'My Orders',
@@ -70,10 +76,8 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
 
     if (shouldLogout != true || !mounted) return;
-
     final auth = Provider.of<AuthProvider>(context, listen: false);
     await auth.logout();
-
     if (!mounted) return;
 
     if (auth.isLoggedIn) {
@@ -88,14 +92,73 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
   }
 
+  // FETCH PENDING ORDERS, COMPLETED ORDERS, AND TOTAL SALES FROM order_items
+  Future<JsonMap> _fetchSellerDashboardMetrics(String sellerId) async {
+    if (sellerId.isEmpty) {
+      return {'pendingCount': 0, 'completedCount': 0, 'totalSales': 0.0};
+    }
+
+    final response = await Supabase.instance.client
+        .from('order_items')
+        .select('''
+          order_id,
+          quantity,
+          unit_price,
+          total_price,
+          products!inner(seller_id),
+          orders!inner(status)
+        ''')
+        .eq('products.seller_id', sellerId);
+
+    final items = JsonList.from(response);
+
+    final Set<dynamic> pendingOrderIds = {};
+    final Set<dynamic> completedOrderIds = {};
+    double totalSales = 0.0;
+
+    for (final item in items) {
+      final orderData = item['orders'] as JsonMap?;
+      final String status =
+          (orderData?['status'] ?? '').toString().toLowerCase();
+      final dynamic orderId = item['order_id'];
+
+      if (status == 'pending') {
+        pendingOrderIds.add(orderId);
+      } else if (status == 'completed' || status == 'delivered') {
+        completedOrderIds.add(orderId);
+
+        final rawTotal = item['total_price'];
+        if (rawTotal != null) {
+          totalSales += (rawTotal is num)
+              ? rawTotal.toDouble()
+              : (double.tryParse(rawTotal.toString()) ?? 0.0);
+        } else {
+          final int qty = (item['quantity'] is num)
+              ? (item['quantity'] as num).toInt()
+              : (int.tryParse(item['quantity']?.toString() ?? '0') ?? 0);
+          final double price = (item['unit_price'] is num)
+              ? (item['unit_price'] as num).toDouble()
+              : (double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0);
+          totalSales += qty * price;
+        }
+      }
+    }
+
+    return {
+      'pendingCount': pendingOrderIds.length,
+      'completedCount': completedOrderIds.length,
+      'totalSales': totalSales,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = <Widget>[
-      _buildHomeScreen(),
-      const Center(child: Text('Orders Screen Placeholder')),
-      _buildProducts(),
-      const Center(child: Text('Profile Screen Placeholder')),
-    ];
+  _buildHomeScreen(),
+  const FarmerOrdersScreen(),   // Replaces 'Orders Screen Placeholder'
+  _buildProducts(),
+  const FarmerProfileScreen(),  // Replaces 'Profile Screen Placeholder'
+];
 
     return Scaffold(
       backgroundColor: agriBackground,
@@ -129,8 +192,12 @@ class _FarmerHomeState extends State<FarmerHome> {
         actions: [
           IconButton(
             tooltip: 'Notifications',
-            onPressed: () => _showMessage('Notifications will be available soon.'),
-            icon: const Icon(Icons.notifications_none_rounded, color: agriDarkGreen),
+            onPressed: () =>
+                _showMessage('Notifications will be available soon.'),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: agriDarkGreen,
+            ),
           ),
           PopupMenuButton<String>(
             tooltip: 'Account options',
@@ -194,192 +261,202 @@ class _FarmerHomeState extends State<FarmerHome> {
     );
   }
 
-  // DASHBOARD TAB (With Real-Time Supabase Stream Overview)
+  // DASHBOARD TAB (With Real-Time Supabase Stream & Sales Metrics)
   Widget _buildHomeScreen() {
     return Consumer<AuthProvider>(
       builder: (context, auth, child) {
         final name = auth.fullName;
-        final firstName = name == 'Guest' || name.isEmpty
-            ? 'Farmer'
-            : name.split(' ').first;
-        final currentUserId = Supabase.instance.client.auth.currentUser?.id ?? '';
+        final firstName =
+            name == 'Guest' || name.isEmpty ? 'Farmer' : name.split(' ').first;
+        final currentUserId =
+            Supabase.instance.client.auth.currentUser?.id ?? '';
 
-        return ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: agriGreen,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'FARMER ACCOUNT',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.bold,
+        return RefreshIndicator(
+          color: agriGreen,
+          onRefresh: () async {
+            setState(() {});
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: agriGreen,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'FARMER ACCOUNT',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        letterSpacing: 1.5,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Hello, $firstName!',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Hello, $firstName!',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Manage your farm products and connect with buyers.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Manage your farm products and connect with buyers.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _addProduct,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add New Product'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: agriDarkGreen,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _addProduct,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add New Product'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: agriDarkGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 26),
-            const Text(
-              'Overview',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: Supabase.instance.client
-                        .from('products')
-                        .stream(primaryKey: ['id'])
-                        .eq('seller_id', currentUserId),
-                    builder: (context, snapshot) {
-                      final productCount = snapshot.data?.length ?? 0;
-                      return _statCard(
-                        title: 'Products',
-                        value: '$productCount',
-                        icon: Icons.inventory_2_outlined,
-                        color: agriGreen,
-                        onTap: () => _goToTab(2),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: Supabase.instance.client
-                        .from('orders')
-                        .stream(primaryKey: ['id'])
-                        .eq('seller_id', currentUserId)
-                        .eq('status', 'pending'),
-                    builder: (context, snapshot) {
-                      final pendingCount = snapshot.data?.length ?? 0;
-                      return _statCard(
-                        title: 'Pending Orders',
-                        value: '$pendingCount',
-                        icon: Icons.pending_actions_outlined,
-                        color: Colors.orange,
-                        onTap: () => _goToTab(1),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _statCard(
-                    title: 'Completed Orders',
-                    value: '0',
-                    icon: Icons.task_alt,
-                    color: Colors.blue,
-                    onTap: () => _goToTab(1),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _statCard(
-                    title: 'Sales',
-                    value: '₱0.00',
-                    icon: Icons.payments_outlined,
-                    color: Colors.purple,
-                    onTap: () => _goToTab(1),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              'Quick Actions',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            _actionTile(
-              icon: Icons.add_box_outlined,
-              title: 'Add a product',
-              subtitle: 'List fresh produce for buyers',
-              onTap: _addProduct,
-            ),
-            _actionTile(
-              icon: Icons.inventory_outlined,
-              title: 'Manage products',
-              subtitle: 'View your product listings',
-              onTap: () => _goToTab(2),
-            ),
-            _actionTile(
-              icon: Icons.receipt_long_outlined,
-              title: 'View orders',
-              subtitle: 'Check customer orders',
-              onTap: () => _goToTab(1),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(14),
+              const SizedBox(height: 26),
+              const Text(
+                'Overview',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.lightbulb_outline, color: agriGreen),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Tip: Use clear product photos and accurate prices to help buyers understand your products.',
-                      style: TextStyle(color: agriDarkGreen, height: 1.5),
+              const SizedBox(height: 14),
+              FutureBuilder<JsonMap>(
+                future: _fetchSellerDashboardMetrics(currentUserId),
+                builder: (context, snapshot) {
+                  final pendingCount = snapshot.data?['pendingCount'] ?? 0;
+                  final completedCount = snapshot.data?['completedCount'] ?? 0;
+                  final double totalSales = snapshot.data?['totalSales'] ?? 0.0;
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: StreamBuilder<JsonList>(
+                              stream: Supabase.instance.client
+                                  .from('products')
+                                  .stream(primaryKey: ['id'])
+                                  .eq('seller_id', currentUserId),
+                              builder: (context, productSnapshot) {
+                                final productCount =
+                                    productSnapshot.data?.length ?? 0;
+                                return _statCard(
+                                  title: 'Products',
+                                  value: '$productCount',
+                                  icon: Icons.inventory_2_outlined,
+                                  color: agriGreen,
+                                  onTap: () => _goToTab(2),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _statCard(
+                              title: 'Pending Orders',
+                              value: '$pendingCount',
+                              icon: Icons.pending_actions_outlined,
+                              color: Colors.orange,
+                              onTap: () => _goToTab(1),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _statCard(
+                              title: 'Completed Orders',
+                              value: '$completedCount',
+                              icon: Icons.task_alt,
+                              color: Colors.blue,
+                              onTap: () => _goToTab(1),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _statCard(
+                              title: 'Sales',
+                              value: '₱${totalSales.toStringAsFixed(2)}',
+                              icon: Icons.payments_outlined,
+                              color: Colors.purple,
+                              onTap: () => _goToTab(1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Quick Actions',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 14),
+              _actionTile(
+                icon: Icons.add_box_outlined,
+                title: 'Add a product',
+                subtitle: 'List fresh produce for buyers',
+                onTap: _addProduct,
+              ),
+              _actionTile(
+                icon: Icons.inventory_outlined,
+                title: 'Manage products',
+                subtitle: 'View your product listings',
+                onTap: () => _goToTab(2),
+              ),
+              _actionTile(
+                icon: Icons.receipt_long_outlined,
+                title: 'View orders',
+                subtitle: 'Check customer orders',
+                onTap: () => _goToTab(1),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lightbulb_outline, color: agriGreen),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Tip: Use clear product photos and accurate prices to help buyers understand your products.',
+                        style: TextStyle(color: agriDarkGreen, height: 1.5),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -418,7 +495,7 @@ class _FarmerHomeState extends State<FarmerHome> {
         if (currentUserId == null)
           const Center(child: Text('User not logged in.'))
         else
-          StreamBuilder<List<Map<String, dynamic>>>(
+          StreamBuilder<JsonList>(
             stream: Supabase.instance.client
                 .from('products')
                 .stream(primaryKey: ['id'])
@@ -508,7 +585,8 @@ class _FarmerHomeState extends State<FarmerHome> {
                               if (imageSnapshot.hasData &&
                                   imageSnapshot.data != null &&
                                   imageSnapshot.data!.isNotEmpty) {
-                                imageUrl = imageSnapshot.data!.first['image_url'] as String?;
+                                imageUrl = imageSnapshot.data!.first['image_url']
+                                    as String?;
                               }
                               if (imageUrl != null && imageUrl.isNotEmpty) {
                                 return Image.network(
@@ -516,11 +594,15 @@ class _FarmerHomeState extends State<FarmerHome> {
                                   width: 60,
                                   height: 60,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
                                     width: 60,
                                     height: 60,
                                     color: Colors.grey[200],
-                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
                                   ),
                                 );
                               }
@@ -528,7 +610,10 @@ class _FarmerHomeState extends State<FarmerHome> {
                                 width: 60,
                                 height: 60,
                                 color: Colors.grey[200],
-                                child: const Icon(Icons.image, color: Colors.grey),
+                                child: const Icon(
+                                  Icons.image,
+                                  color: Colors.grey,
+                                ),
                               );
                             },
                           ),
@@ -563,7 +648,9 @@ class _FarmerHomeState extends State<FarmerHome> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  isOutOfStock ? 'Out of stock' : '$stock in stock',
+                                  isOutOfStock
+                                      ? 'Out of stock'
+                                      : '$stock in stock',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -575,12 +662,16 @@ class _FarmerHomeState extends State<FarmerHome> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: agriGreen),
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            color: agriGreen,
+                          ),
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => EditProductScreen(product: product),
+                                builder: (context) =>
+                                    EditProductScreen(product: product),
                               ),
                             );
                           },

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'farmer_theme.dart';
+
+typedef JsonMap = Map<String, dynamic>;
+typedef JsonList = List<JsonMap>;
 
 class FarmerOrdersScreen extends StatefulWidget {
   const FarmerOrdersScreen({super.key});
@@ -10,10 +13,8 @@ class FarmerOrdersScreen extends StatefulWidget {
 }
 
 class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
-  // Starts at zero. Products do not automatically create orders.
-  // Real orders will be loaded from the backend later.
-  final List<Map<String, dynamic>> _orders = [];
-
+  JsonList _orders = [];
+  bool _isLoading = true;
   String _selectedFilter = 'All';
 
   final List<String> _filters = [
@@ -24,11 +25,148 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     'Cancelled',
   ];
 
-  List<Map<String, dynamic>> get _filteredOrders {
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  String _capitalizeStatus(String raw) {
+    final lower = raw.trim().toLowerCase();
+    if (lower == 'delivered' || lower == 'completed') return 'Completed';
+    if (lower == 'to_ship' || lower == 'confirmed') return 'Confirmed';
+    if (lower == 'cancelled') return 'Cancelled';
+    return 'Pending';
+  }
+
+  Future<void> _fetchOrders() async {
+    setState(() => _isLoading = true);
+
+    final sellerId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    if (sellerId.isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      // Lines 53–79: Remove nested 'profiles ( full_name )' inside orders!inner
+      // Lines 53–75: Removed 'unit' from products!inner
+      final response = await Supabase.instance.client
+          .from('order_items')
+          .select('''
+            id,
+            order_id,
+            quantity,
+            unit_price,
+            total_price,
+            products!inner (
+              name,
+              seller_id
+            ),
+            orders!inner (
+              id,
+              order_reference,
+              status,
+              buyer_id
+            )
+          ''')
+          .eq('products.seller_id', sellerId)
+          .order('id', ascending: false);
+
+      final rawItems = JsonList.from(response);
+      final Map<dynamic, JsonMap> groupedMap = {};
+
+      for (final item in rawItems) {
+        final order = item['orders'] as JsonMap? ?? {};
+        final product = item['products'] as JsonMap? ?? {};
+        final profile = order['profiles'] as JsonMap? ?? {};
+
+        final dynamic dbOrderId = item['order_id'];
+        final String productName =
+            product['name']?.toString() ?? 'Unnamed Product';
+        final String unit = product['unit']?.toString() ?? 'kg';
+        final int qty = (item['quantity'] is num)
+            ? (item['quantity'] as num).toInt()
+            : (int.tryParse(item['quantity']?.toString() ?? '1') ?? 1);
+
+        final double itemTotal = (item['total_price'] is num)
+            ? (item['total_price'] as num).toDouble()
+            : (double.tryParse(item['total_price']?.toString() ?? '0') ?? 0.0);
+
+        if (!groupedMap.containsKey(dbOrderId)) {
+          groupedMap[dbOrderId] = {
+            'db_order_id': dbOrderId,
+            'id': order['order_reference']?.toString() ?? 'ORD-$dbOrderId',
+            'status': _capitalizeStatus(order['status']?.toString() ?? ''),
+            'customer': profile['full_name']?.toString() ?? 'Customer',
+            'products_list': <String>[],
+            'quantities_list': <String>[],
+            'raw_total': 0.0,
+          };
+        }
+
+        (groupedMap[dbOrderId]!['products_list'] as List<String>)
+            .add(productName);
+        (groupedMap[dbOrderId]!['quantities_list'] as List<String>)
+            .add('$qty $unit');
+        groupedMap[dbOrderId]!['raw_total'] =
+            (groupedMap[dbOrderId]!['raw_total'] as double) + itemTotal;
+      }
+
+      final JsonList formattedOrders = groupedMap.values.map((entry) {
+        final double total = entry['raw_total'] as double;
+        return <String, dynamic>{
+          'db_order_id': entry['db_order_id'],
+          'id': entry['id'],
+          'status': entry['status'],
+          'customer': entry['customer'],
+          'product': (entry['products_list'] as List<String>).join(', '),
+          'quantity': (entry['quantities_list'] as List<String>).join(', '),
+          'total': total.toStringAsFixed(2),
+        };
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _orders = formattedOrders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading orders: $e')),
+      );
+    }
+  }
+
+  Future<void> _updateOrderStatus(dynamic dbOrderId, String newDbStatus) async {
+    try {
+      await Supabase.instance.client
+          .from('orders')
+          .update({'status': newDbStatus})
+          .eq('id', dbOrderId);
+
+      await _fetchOrders();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Order marked as ${_capitalizeStatus(newDbStatus)}'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update order: $e')),
+      );
+    }
+  }
+
+  JsonList get _filteredOrders {
     if (_selectedFilter == 'All') {
       return _orders;
     }
-
     return _orders
         .where((order) => order['status'] == _selectedFilter)
         .toList();
@@ -38,7 +176,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     if (status == 'All') {
       return _orders.length;
     }
-
     return _orders.where((order) => order['status'] == status).length;
   }
 
@@ -46,18 +183,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F5),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Orders',
-          style: TextStyle(
-            color: Colors.black87,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,11 +196,10 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Summary cards show zero while there are no orders.
   Widget _buildSummary() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
       child: Row(
         children: [
           Expanded(
@@ -147,7 +271,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Filters remain available for future real orders.
   Widget _buildFilters() {
     return Container(
       color: Colors.white,
@@ -157,7 +280,6 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
         child: Row(
           children: _filters.map((filter) {
             final bool selected = _selectedFilter == filter;
-
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
@@ -190,25 +312,43 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // No orders means no order cards or products are displayed.
   Widget _buildOrdersContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: agriGreen),
+      );
+    }
+
     if (_orders.isEmpty) {
-      return _buildEmptyState();
+      return RefreshIndicator(
+        color: agriGreen,
+        onRefresh: _fetchOrders,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: 360,
+            child: _buildEmptyState(),
+          ),
+        ),
+      );
     }
 
     final orders = _filteredOrders;
-
     if (orders.isEmpty) {
       return _buildNoFilteredOrdersState();
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: orders.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        return _buildOrderCard(orders[index]);
-      },
+    return RefreshIndicator(
+      color: agriGreen,
+      onRefresh: _fetchOrders,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: orders.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _buildOrderCard(orders[index]);
+        },
+      ),
     );
   }
 
@@ -226,7 +366,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
                 color: agriGreen.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.receipt_long_outlined,
                 size: 54,
                 color: agriGreen,
@@ -244,9 +384,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
             ),
             const SizedBox(height: 10),
             Text(
-              'You currently have 0 orders. '
-              'Orders will appear here when customers '
-              'place orders for your products.',
+              'You currently have 0 orders. Orders will appear here when customers place orders for your products.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -285,10 +423,10 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
     );
   }
 
-  // Displays order details only when an actual order exists.
-  Widget _buildOrderCard(Map<String, dynamic> order) {
+  Widget _buildOrderCard(JsonMap order) {
     final String status = order['status']?.toString() ?? 'Pending';
     final Color statusColor = _getStatusColor(status);
+    final dynamic dbOrderId = order['db_order_id'];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -336,6 +474,44 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
           _detailRow('Product', order['product']?.toString() ?? '-'),
           _detailRow('Quantity', order['quantity']?.toString() ?? '-'),
           _detailRow('Total', '₱${order['total'] ?? '0.00'}'),
+          if (status == 'Pending' || status == 'Confirmed') ...[
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (status == 'Pending') ...[
+                  TextButton(
+                    onPressed: () => _updateOrderStatus(dbOrderId, 'cancelled'),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _updateOrderStatus(dbOrderId, 'confirmed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: agriGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Confirm Order'),
+                  ),
+                ] else if (status == 'Confirmed')
+                  ElevatedButton(
+                    onPressed: () => _updateOrderStatus(dbOrderId, 'completed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Mark as Completed'),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
