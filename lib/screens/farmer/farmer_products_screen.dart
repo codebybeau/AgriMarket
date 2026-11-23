@@ -19,7 +19,6 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  // Tracks which product is currently being deleted.
   int? _deletingProductId;
 
   @override
@@ -41,6 +40,8 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
       return;
     }
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -52,7 +53,6 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
       if (!mounted) return;
 
       setState(() {
-        // Do not display products that have already been deleted.
         _products = products
             .where(
               (product) =>
@@ -81,12 +81,13 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
       MaterialPageRoute(builder: (_) => const AddNewProductScreen()),
     );
 
+    if (!mounted) return;
+
     if (published == true) {
       await _loadProducts();
     }
   }
 
-  // Ask for confirmation before deleting.
   Future<void> _confirmDeleteProduct(Map<String, dynamic> product) async {
     final productName = product['name']?.toString() ?? 'this product';
 
@@ -121,12 +122,13 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
       },
     );
 
+    if (!mounted) return;
+
     if (confirmed == true) {
       await _deleteProduct(product);
     }
   }
 
-  // Soft-delete the product in Supabase.
   Future<void> _deleteProduct(Map<String, dynamic> product) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final productId = product['id'];
@@ -203,8 +205,18 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
       );
   }
 
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
+  int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
   String _priceText(dynamic price) {
-    final value = price is num ? price.toDouble() : 0.0;
+    final value = _toDouble(price);
 
     return '₱${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 2)}';
   }
@@ -239,10 +251,9 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
 
   Widget _buildProductCard(Map<String, dynamic> product) {
     final imageUrl = product['image_url']?.toString();
-    final stock = (product['stock_quantity'] as num?)?.toInt() ?? 0;
+    final stock = _toInt(product['stock_quantity']);
     final status = product['status']?.toString() ?? 'unknown';
     final isActive = status.toLowerCase() == 'active';
-
     final unit = product['unit_name']?.toString() ?? 'unit';
 
     final rawId = product['id'];
@@ -292,7 +303,6 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
                   ),
           ),
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,8 +355,6 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
               ],
             ),
           ),
-
-          // Delete button.
           isDeleting
               ? const Padding(
                   padding: EdgeInsets.all(10),
@@ -376,6 +384,7 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
     return RefreshIndicator(
       onRefresh: _loadProducts,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
         children: [
           const Text(
@@ -392,7 +401,6 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
             style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 24),
-
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -409,9 +417,7 @@ class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 24),
-
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
