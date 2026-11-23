@@ -138,7 +138,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
     final List<Map<String, dynamic>> orderItems = [];
     final List<int> cartItemIds = [];
 
-    // Validate the products before saving the order.
+    // Validate products before saving the order.
     for (final item in widget.checkoutItems) {
       final productId = _getProductId(item);
       final cartItemId = _getCartItemId(item);
@@ -178,6 +178,9 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
       );
       return;
     }
+
+    // Get the provider BEFORE any asynchronous operation.
+    final cartProvider = Provider.of<CartProvider>(context, listen: false);
 
     setState(() {
       _isPlacingOrder = true;
@@ -222,8 +225,6 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
       bool cartCleared = false;
 
       try {
-        final cartProvider = Provider.of<CartProvider>(context, listen: false);
-
         cartCleared = await cartProvider.removePurchasedItems(cartItemIds);
       } catch (error) {
         debugPrint('CART CLEANUP ERROR: $error');
