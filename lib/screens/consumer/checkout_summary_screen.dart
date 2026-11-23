@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'orderplaced_screen.dart'; // ISINAMA ANG IMPORT NA ITO
+import '../../providers/cart_provider.dart';
+import 'orderplaced_screen.dart';
 
 class CheckoutSummaryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> checkoutItems;
@@ -32,38 +35,237 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
+  bool _isPlacingOrder = false;
+
+  final SupabaseClient _supabase = Supabase.instance.client;
+
   double get _subtotal {
-    double total = 0.0;
-    for (var item in widget.checkoutItems) {
-      total += (item['price'] as double) * (item['quantity'] as int);
+    double total = 0;
+
+    for (final item in widget.checkoutItems) {
+      final price = (item['price'] as num).toDouble();
+      final quantity = (item['quantity'] as num).toInt();
+
+      total += price * quantity;
     }
+
     return total;
   }
 
   double get _totalAmount => _subtotal + widget.deliveryFee;
 
-  void _placeOrder() {
+  // ---------------------------------------------------------
+  // GET PRODUCT ID
+  // ---------------------------------------------------------
+
+  int? _getProductId(Map<String, dynamic> item) {
+    final value = item['productId'] ?? item['product_id'];
+
+    if (value == null) return null;
+
+    if (value is int) return value;
+
+    return int.tryParse(value.toString());
+  }
+
+  // ---------------------------------------------------------
+  // GET CART ITEM ID
+  // ---------------------------------------------------------
+
+  int? _getCartItemId(Map<String, dynamic> item) {
+    final value = item['cartItemId'] ?? item['cart_item_id'] ?? item['id'];
+
+    if (value == null) return null;
+
+    if (value is int) return value;
+
+    return int.tryParse(value.toString());
+  }
+
+  // ---------------------------------------------------------
+  // GET ADDRESS ID
+  // ---------------------------------------------------------
+
+  int? _getAddressId() {
+    final value =
+        widget.selectedAddress['id'] ?? widget.selectedAddress['address_id'];
+
+    if (value == null) return null;
+
+    if (value is int) return value;
+
+    return int.tryParse(value.toString());
+  }
+
+  // ---------------------------------------------------------
+  // SHOW MESSAGE
+  // ---------------------------------------------------------
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text('Order placed successfully! Redirecting...'),
+        SnackBar(
+          content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: darkGreen,
-          duration: Duration(seconds: 2),
+          backgroundColor: isError ? Colors.red.shade700 : darkGreen,
+          duration: const Duration(seconds: 3),
         ),
       );
-
-    // NAKAKABIT NA SA ORDERPLACED_SCREEN
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            const OrderPlacedScreen(orderReference: 'ORD-2024-285'),
-      ),
-      (route) => route.isFirst,
-    );
   }
+
+  // ---------------------------------------------------------
+  // PLACE ORDER
+  // ---------------------------------------------------------
+
+  Future<void> _placeOrder() async {
+    if (_isPlacingOrder) return;
+
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      _showMessage('Please log in before placing an order.', isError: true);
+      return;
+    }
+
+    if (widget.checkoutItems.isEmpty) {
+      _showMessage('Your checkout has no items.', isError: true);
+      return;
+    }
+
+    final List<Map<String, dynamic>> orderItems = [];
+    final List<int> cartItemIds = [];
+
+    // Validate the products before saving the order.
+    for (final item in widget.checkoutItems) {
+      final productId = _getProductId(item);
+      final cartItemId = _getCartItemId(item);
+
+      if (productId == null || cartItemId == null) {
+        _showMessage(
+          'A product ID or cart item ID is missing. Please return to your cart.',
+          isError: true,
+        );
+        return;
+      }
+
+      final price = (item['price'] as num).toDouble();
+      final quantity = (item['quantity'] as num).toInt();
+
+      if (quantity <= 0 || price < 0) {
+        _showMessage('Invalid product quantity or price.', isError: true);
+        return;
+      }
+
+      cartItemIds.add(cartItemId);
+
+      orderItems.add({
+        'product_id': productId,
+        'quantity': quantity,
+        'unit_price': price,
+        'total_price': price * quantity,
+      });
+    }
+
+    final addressId = _getAddressId();
+
+    if (addressId == null) {
+      _showMessage(
+        'The selected address ID is missing. Please select your delivery address again.',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      _isPlacingOrder = true;
+    });
+
+    try {
+      final orderReference = 'AGR-${DateTime.now().millisecondsSinceEpoch}';
+
+      // STEP 1: SAVE ORDER.
+      final orderResponse = await _supabase
+          .from('orders')
+          .insert({
+            'order_reference': orderReference,
+            'buyer_id': user.id,
+            'address_id': addressId,
+            'delivery_method': widget.deliveryMethod,
+            'delivery_fee': widget.deliveryFee,
+            'payment_method': widget.paymentMethod,
+            'subtotal': _subtotal,
+            'total_amount': _totalAmount,
+            'status': 'Pending',
+          })
+          .select('id')
+          .single();
+
+      final int orderId = (orderResponse['id'] as num).toInt();
+
+      // STEP 2: SAVE ORDER ITEMS.
+      final itemsToInsert = orderItems.map((item) {
+        return {
+          'order_id': orderId,
+          'product_id': item['product_id'],
+          'quantity': item['quantity'],
+          'unit_price': item['unit_price'],
+          'total_price': item['total_price'],
+        };
+      }).toList();
+
+      await _supabase.from('order_items').insert(itemsToInsert);
+
+      // STEP 3: REMOVE PURCHASED ITEMS FROM CART.
+      bool cartCleared = false;
+
+      try {
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+
+        cartCleared = await cartProvider.removePurchasedItems(cartItemIds);
+      } catch (error) {
+        debugPrint('CART CLEANUP ERROR: $error');
+      }
+
+      if (!mounted) return;
+
+      if (cartCleared) {
+        _showMessage('Order placed successfully! Cart updated.');
+      } else {
+        _showMessage(
+          'Order placed successfully, but some cart items could not be removed. Please refresh your cart.',
+          isError: true,
+        );
+      }
+
+      // STEP 4: NAVIGATE TO ORDER PLACED SCREEN.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) =>
+              OrderPlacedScreen(orderReference: orderReference),
+        ),
+      );
+    } catch (error) {
+      debugPrint('PLACE ORDER ERROR: $error');
+
+      _showMessage(
+        'Unable to place your order. Please try again. $error',
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPlacingOrder = false;
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------
+  // BUILD SCREEN
+  // ---------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +282,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
           top: false,
           child: Column(
             children: [
-              // ================= HEADER =================
+              // HEADER
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.fromLTRB(
@@ -139,7 +341,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                 ),
               ),
 
-              // ================= CONTENT =================
+              // CONTENT
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -156,7 +358,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Seller Voucher Card
+                      // SELLER VOUCHER CARD
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -238,7 +440,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Delivery Address Details Card
+                      // DELIVERY ADDRESS
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -271,7 +473,8 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${widget.selectedAddress['name']} - ${widget.selectedAddress['phone']}',
+                              '${widget.selectedAddress['name']} - '
+                              '${widget.selectedAddress['phone']}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -280,7 +483,8 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              widget.selectedAddress['address'],
+                              widget.selectedAddress['address']?.toString() ??
+                                  '',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: mutedText,
@@ -293,7 +497,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Items List Card
+                      // ITEMS LIST
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -321,28 +525,31 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                               itemCount: widget.checkoutItems.length,
                               itemBuilder: (context, index) {
                                 final item = widget.checkoutItems[index];
+
+                                final price = (item['price'] as num).toDouble();
+
+                                final quantity = (item['quantity'] as num)
+                                    .toInt();
+
+                                final imageUrl =
+                                    item['image']?.toString() ?? '';
+
                                 return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  padding: const EdgeInsets.only(bottom: 8),
                                   child: Row(
                                     children: [
                                       ClipRRect(
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Image.network(
-                                          item['image'],
-                                          width: 44,
-                                          height: 44,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) => Container(
-                                            width: 44,
-                                            height: 44,
-                                            color: const Color(0xFFE8F0E7),
-                                            child: const Icon(
-                                              Icons.eco,
-                                              color: primaryGreen,
-                                              size: 20,
-                                            ),
-                                          ),
-                                        ),
+                                        child: imageUrl.isNotEmpty
+                                            ? Image.network(
+                                                imageUrl,
+                                                width: 44,
+                                                height: 44,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, _, _) =>
+                                                    _buildProductPlaceholder(),
+                                              )
+                                            : _buildProductPlaceholder(),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
@@ -351,7 +558,8 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              item['name'],
+                                              item['name']?.toString() ??
+                                                  'Product',
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -361,7 +569,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             Text(
-                                              'x${item['quantity']} kg',
+                                              'x$quantity kg',
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 color: mutedText,
@@ -371,7 +579,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                                         ),
                                       ),
                                       Text(
-                                        '₱${((item['price'] as double) * (item['quantity'] as int)).toStringAsFixed(0)}',
+                                        '₱${(price * quantity).toStringAsFixed(0)}',
                                         style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold,
@@ -389,7 +597,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
 
                       const SizedBox(height: 12),
 
-                      // Totals & Payment Summary Card
+                      // TOTALS AND PAYMENT
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -497,7 +705,7 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                 ),
               ),
 
-              // ================= PLACE ORDER BUTTON =================
+              // PLACE ORDER BUTTON
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -514,29 +722,39 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: _placeOrder,
+                    onPressed: _isPlacingOrder ? null : _placeOrder,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: darkGreen,
+                      disabledBackgroundColor: Colors.grey,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check, color: Colors.white, size: 18),
-                        SizedBox(width: 6),
-                        Text(
-                          'Place Order',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
+                    child: _isPlacingOrder
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.check, color: Colors.white, size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                'Place Order',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -546,6 +764,23 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
       ),
     );
   }
+
+  // ---------------------------------------------------------
+  // PRODUCT PLACEHOLDER
+  // ---------------------------------------------------------
+
+  Widget _buildProductPlaceholder() {
+    return Container(
+      width: 44,
+      height: 44,
+      color: const Color(0xFFE8F0E7),
+      child: const Icon(Icons.eco, color: primaryGreen, size: 20),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // CHECKOUT STEP ITEM
+  // ---------------------------------------------------------
 
   Widget _buildStepItem(
     int stepNumber,
@@ -593,6 +828,10 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
       ],
     );
   }
+
+  // ---------------------------------------------------------
+  // CHECKOUT STEP CONNECTOR
+  // ---------------------------------------------------------
 
   Widget _buildStepConnector() {
     return Expanded(

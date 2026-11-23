@@ -166,7 +166,6 @@ class CartProvider extends ChangeNotifier {
 
         final product = productById[productId];
 
-        // Do not display inactive or deleted products in the cart.
         if (product == null) continue;
 
         final sellerId = product['seller_id']?.toString();
@@ -198,13 +197,10 @@ class CartProvider extends ChangeNotifier {
         final stock = _toInt(product['stock_quantity']) ?? 0;
 
         final item = <String, dynamic>{
-          // Actual database identifiers.
           'id': cartItemId.toString(),
           'cartItemId': cartItemId,
           'productId': productId,
           'sellerId': sellerId,
-
-          // Actual product information.
           'name': product['name']?.toString() ?? 'Product',
           'price': _toDouble(product['price']),
           'quantity': _toInt(row['quantity']) ?? 1,
@@ -213,8 +209,6 @@ class CartProvider extends ChangeNotifier {
           'image': imageByProductId[productId] ?? '',
           'badge': product['is_organic'] == true ? 'Organic' : null,
           'selected': false,
-
-          // Additional information.
           'description': product['description'],
           'delivery_details': product['delivery_details'],
           'farmName': farmName,
@@ -230,6 +224,7 @@ class CartProvider extends ChangeNotifier {
     } catch (error) {
       _isLoading = false;
       _errorMessage = error.toString();
+      debugPrint('Load cart error: $error');
       notifyListeners();
     }
   }
@@ -251,11 +246,8 @@ class CartProvider extends ChangeNotifier {
   }) async {
     final user = _client.auth.currentUser;
 
-    if (user == null) {
-      return false;
-    }
+    if (user == null) return false;
 
-    // A real product ID and seller ID are required.
     if (productId == null || sellerId == null) {
       debugPrint(
         'Cannot add demo product. A real productId and sellerId are required.',
@@ -264,7 +256,6 @@ class CartProvider extends ChangeNotifier {
     }
 
     try {
-      // Recheck the product directly in Supabase.
       final productResponse = await _client
           .from('products')
           .select('id, seller_id, name, price, stock_quantity, status')
@@ -279,11 +270,8 @@ class CartProvider extends ChangeNotifier {
 
       final stock = _toInt(productResponse['stock_quantity']) ?? 0;
 
-      if (stock <= 0) {
-        return false;
-      }
+      if (stock <= 0) return false;
 
-      // Check whether this consumer already has this product.
       final existingResponse = await _client
           .from('cart_items')
           .select('id, quantity')
@@ -296,9 +284,7 @@ class CartProvider extends ChangeNotifier {
         final currentQuantity = _toInt(existingResponse['quantity']) ?? 0;
         final newQuantity = currentQuantity + 1;
 
-        if (newQuantity > stock) {
-          return false;
-        }
+        if (newQuantity > stock) return false;
 
         if (cartItemId == null) return false;
 
@@ -445,9 +431,7 @@ class CartProvider extends ChangeNotifier {
 
     final stock = _toInt(item['stock_quantity']) ?? 0;
 
-    if (newQuantity > stock) {
-      return false;
-    }
+    if (newQuantity > stock) return false;
 
     final cartItemId = _toInt(item['cartItemId']);
     final user = _client.auth.currentUser;
@@ -533,6 +517,46 @@ class CartProvider extends ChangeNotifier {
     }
 
     return selectedItems;
+  }
+
+  // ---------------------------------------------------------
+  // REMOVE PURCHASED ITEMS AFTER SUCCESSFUL CHECKOUT
+  // ---------------------------------------------------------
+
+  Future<bool> removePurchasedItems(List<int> cartItemIds) async {
+    final user = _client.auth.currentUser;
+
+    if (user == null || cartItemIds.isEmpty) {
+      return false;
+    }
+
+    final uniqueIds = cartItemIds.toSet().toList();
+
+    try {
+      // Delete only the selected cart rows belonging to this user.
+      final deletedRows = await _client
+          .from('cart_items')
+          .delete()
+          .eq('user_id', user.id)
+          .inFilter('id', uniqueIds)
+          .select('id');
+
+      final deletedIds = deletedRows
+          .map((row) => _toInt(row['id']))
+          .whereType<int>()
+          .toSet();
+
+      // Refresh the cart after attempting the deletion.
+      await loadCart();
+
+      // Confirm that every requested cart row was deleted.
+      return uniqueIds.every((id) => deletedIds.contains(id));
+    } catch (error) {
+      debugPrint('Remove purchased cart items error: $error');
+
+      await loadCart();
+      return false;
+    }
   }
 
   // ---------------------------------------------------------
