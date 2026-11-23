@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'farmer_theme.dart';
 
 typedef JsonMap = Map<String, dynamic>;
@@ -13,8 +14,12 @@ class FarmerOrdersScreen extends StatefulWidget {
 }
 
 class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
   JsonList _orders = [];
   bool _isLoading = true;
+  String? _errorMessage;
+
   String _selectedFilter = 'All';
 
   final List<String> _filters = [
@@ -32,32 +37,52 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   }
 
   String _capitalizeStatus(String raw) {
-    final lower = raw.trim().toLowerCase();
-    if (lower == 'delivered' || lower == 'completed') return 'Completed';
-    if (lower == 'to_ship' || lower == 'confirmed') return 'Confirmed';
-    if (lower == 'cancelled') return 'Cancelled';
-    return 'Pending';
+    final status = raw.trim().toLowerCase();
+
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'confirmed':
+      case 'to_ship':
+        return 'Confirmed';
+      case 'completed':
+      case 'delivered':
+        return 'Completed';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      default:
+        if (status.isEmpty) return 'Pending';
+        return status[0].toUpperCase() + status.substring(1);
+    }
   }
 
   Future<void> _fetchOrders() async {
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
-    final sellerId = Supabase.instance.client.auth.currentUser?.id ?? '';
-    if (sellerId.isEmpty) {
-      setState(() => _isLoading = false);
+    final sellerId = _supabase.auth.currentUser?.id;
+
+    if (sellerId == null || sellerId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Please sign in to view your orders.';
+      });
       return;
     }
 
     try {
-      // Lines 53–79: Remove nested 'profiles ( full_name )' inside orders!inner
-      // Lines 53–75: Removed 'unit' from products!inner
-      final response = await Supabase.instance.client
+      final response = await _supabase
           .from('order_items')
           .select('''
             id,
             order_id,
             quantity,
-            unit_price,
             total_price,
             products!inner (
               name,
@@ -67,59 +92,74 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
               id,
               order_reference,
               status,
-              buyer_id
+              buyer_id,
+              created_at
             )
           ''')
           .eq('products.seller_id', sellerId)
           .order('id', ascending: false);
 
-      final rawItems = JsonList.from(response);
+      final rawItems = response
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList();
+
       final Map<dynamic, JsonMap> groupedMap = {};
 
       for (final item in rawItems) {
-        final order = item['orders'] as JsonMap? ?? {};
-        final product = item['products'] as JsonMap? ?? {};
-        final profile = order['profiles'] as JsonMap? ?? {};
+        final order = item['orders'] is Map
+            ? Map<String, dynamic>.from(item['orders'] as Map)
+            : <String, dynamic>{};
 
-        final dynamic dbOrderId = item['order_id'];
-        final String productName =
-            product['name']?.toString() ?? 'Unnamed Product';
-        final String unit = product['unit']?.toString() ?? 'kg';
-        final int qty = (item['quantity'] is num)
+        final product = item['products'] is Map
+            ? Map<String, dynamic>.from(item['products'] as Map)
+            : <String, dynamic>{};
+
+        final dbOrderId = item['order_id'];
+
+        final productName = product['name']?.toString() ?? 'Unnamed Product';
+
+        final quantity = item['quantity'] is num
             ? (item['quantity'] as num).toInt()
-            : (int.tryParse(item['quantity']?.toString() ?? '1') ?? 1);
+            : int.tryParse(item['quantity']?.toString() ?? '') ?? 1;
 
-        final double itemTotal = (item['total_price'] is num)
+        final itemTotal = item['total_price'] is num
             ? (item['total_price'] as num).toDouble()
-            : (double.tryParse(item['total_price']?.toString() ?? '0') ?? 0.0);
+            : double.tryParse(item['total_price']?.toString() ?? '') ?? 0.0;
 
         if (!groupedMap.containsKey(dbOrderId)) {
           groupedMap[dbOrderId] = {
             'db_order_id': dbOrderId,
             'id': order['order_reference']?.toString() ?? 'ORD-$dbOrderId',
             'status': _capitalizeStatus(order['status']?.toString() ?? ''),
-            'customer': profile['full_name']?.toString() ?? 'Customer',
+            'customer': 'Customer',
+            'created_at': order['created_at']?.toString(),
             'products_list': <String>[],
             'quantities_list': <String>[],
             'raw_total': 0.0,
           };
         }
 
-        (groupedMap[dbOrderId]!['products_list'] as List<String>)
-            .add(productName);
-        (groupedMap[dbOrderId]!['quantities_list'] as List<String>)
-            .add('$qty $unit');
+        (groupedMap[dbOrderId]!['products_list'] as List<String>).add(
+          productName,
+        );
+
+        (groupedMap[dbOrderId]!['quantities_list'] as List<String>).add(
+          '$quantity',
+        );
+
         groupedMap[dbOrderId]!['raw_total'] =
             (groupedMap[dbOrderId]!['raw_total'] as double) + itemTotal;
       }
 
       final JsonList formattedOrders = groupedMap.values.map((entry) {
-        final double total = entry['raw_total'] as double;
+        final total = entry['raw_total'] as double;
+
         return <String, dynamic>{
           'db_order_id': entry['db_order_id'],
           'id': entry['id'],
           'status': entry['status'],
           'customer': entry['customer'],
+          'created_at': entry['created_at'],
           'product': (entry['products_list'] as List<String>).join(', '),
           'quantity': (entry['quantities_list'] as List<String>).join(', '),
           'total': total.toStringAsFixed(2),
@@ -127,55 +167,74 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
       }).toList();
 
       if (!mounted) return;
+
       setState(() {
         _orders = formattedOrders;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (error, stackTrace) {
+      debugPrint('Farmer orders error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (!mounted) return;
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading orders: $e')),
-      );
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Could not load orders. Check your connection and Supabase policies.';
+      });
     }
   }
 
   Future<void> _updateOrderStatus(dynamic dbOrderId, String newDbStatus) async {
+    if (dbOrderId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to identify this order.')),
+      );
+      return;
+    }
+
     try {
-      await Supabase.instance.client
+      final updatedRows = await _supabase
           .from('orders')
           .update({'status': newDbStatus})
-          .eq('id', dbOrderId);
+          .eq('id', dbOrderId)
+          .select('id');
+
+      if (updatedRows.isEmpty) {
+        throw Exception(
+          'The order was not updated. It may no longer be available.',
+        );
+      }
 
       await _fetchOrders();
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order marked as ${_capitalizeStatus(newDbStatus)}'),
+          content: Text('Order marked as ${_capitalizeStatus(newDbStatus)}.'),
         ),
       );
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update order: $e')),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update order: $error')));
     }
   }
 
   JsonList get _filteredOrders {
-    if (_selectedFilter == 'All') {
-      return _orders;
-    }
+    if (_selectedFilter == 'All') return _orders;
+
     return _orders
         .where((order) => order['status'] == _selectedFilter)
         .toList();
   }
 
   int _countOrders(String status) {
-    if (status == 'All') {
-      return _orders.length;
-    }
+    if (status == 'All') return _orders.length;
+
     return _orders.where((order) => order['status'] == status).length;
   }
 
@@ -183,6 +242,24 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8F5),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'Orders',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: _fetchOrders,
+            icon: const Icon(Icons.refresh, color: agriDarkGreen),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,16 +356,15 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: _filters.map((filter) {
-            final bool selected = _selectedFilter == filter;
+            final selected = _selectedFilter == filter;
+
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
                 label: Text('$filter (${_countOrders(filter)})'),
                 selected: selected,
                 onSelected: (_) {
-                  setState(() {
-                    _selectedFilter = filter;
-                  });
+                  setState(() => _selectedFilter = filter);
                 },
                 selectedColor: agriGreen,
                 backgroundColor: Colors.white,
@@ -314,8 +390,31 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
 
   Widget _buildOrdersContent() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: agriGreen),
+      return const Center(child: CircularProgressIndicator(color: agriGreen));
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.redAccent,
+                size: 42,
+              ),
+              const SizedBox(height: 12),
+              Text(_errorMessage!, textAlign: TextAlign.center),
+              TextButton.icon(
+                onPressed: _fetchOrders,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -323,17 +422,15 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
       return RefreshIndicator(
         color: agriGreen,
         onRefresh: _fetchOrders,
-        child: SingleChildScrollView(
+        child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: 360,
-            child: _buildEmptyState(),
-          ),
+          children: [SizedBox(height: 360, child: _buildEmptyState())],
         ),
       );
     }
 
     final orders = _filteredOrders;
+
     if (orders.isEmpty) {
       return _buildNoFilteredOrdersState();
     }
@@ -342,9 +439,10 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
       color: agriGreen,
       onRefresh: _fetchOrders,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           return _buildOrderCard(orders[index]);
         },
@@ -354,7 +452,7 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -424,9 +522,19 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   }
 
   Widget _buildOrderCard(JsonMap order) {
-    final String status = order['status']?.toString() ?? 'Pending';
-    final Color statusColor = _getStatusColor(status);
-    final dynamic dbOrderId = order['db_order_id'];
+    final status = order['status']?.toString() ?? 'Pending';
+    final statusColor = _getStatusColor(status);
+    final dbOrderId = order['db_order_id'];
+
+    final date = DateTime.tryParse(order['created_at']?.toString() ?? '');
+
+    final dateText = date == null
+        ? '-'
+        : '${date.day.toString().padLeft(2, '0')}/'
+              '${date.month.toString().padLeft(2, '0')}/'
+              '${date.year}';
+
+    final total = double.tryParse(order['total']?.toString() ?? '0') ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -470,10 +578,11 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          _detailRow('Customer', order['customer']?.toString() ?? '-'),
+          _detailRow('Customer', order['customer']?.toString() ?? 'Customer'),
           _detailRow('Product', order['product']?.toString() ?? '-'),
           _detailRow('Quantity', order['quantity']?.toString() ?? '-'),
-          _detailRow('Total', '₱${order['total'] ?? '0.00'}'),
+          _detailRow('Date', dateText),
+          _detailRow('Total', '₱${total.toStringAsFixed(2)}'),
           if (status == 'Pending' || status == 'Confirmed') ...[
             const Divider(height: 20),
             Row(
@@ -481,13 +590,17 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
               children: [
                 if (status == 'Pending') ...[
                   TextButton(
-                    onPressed: () => _updateOrderStatus(dbOrderId, 'cancelled'),
+                    onPressed: () {
+                      _updateOrderStatus(dbOrderId, 'cancelled');
+                    },
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () => _updateOrderStatus(dbOrderId, 'confirmed'),
+                    onPressed: () {
+                      _updateOrderStatus(dbOrderId, 'confirmed');
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: agriGreen,
                       foregroundColor: Colors.white,
@@ -499,7 +612,9 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
                   ),
                 ] else if (status == 'Confirmed')
                   ElevatedButton(
-                    onPressed: () => _updateOrderStatus(dbOrderId, 'completed'),
+                    onPressed: () {
+                      _updateOrderStatus(dbOrderId, 'completed');
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
@@ -546,14 +661,14 @@ class _FarmerOrdersScreenState extends State<FarmerOrdersScreen> {
   }
 
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return Colors.orange;
-      case 'Confirmed':
+      case 'confirmed':
         return Colors.blue;
-      case 'Completed':
+      case 'completed':
         return Colors.green;
-      case 'Cancelled':
+      case 'cancelled':
         return Colors.red;
       default:
         return Colors.grey;

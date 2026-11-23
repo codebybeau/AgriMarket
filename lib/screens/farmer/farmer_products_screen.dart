@@ -1,284 +1,478 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FarmerProductsScreen extends StatelessWidget {
-  const FarmerProductsScreen({Key? key}) : super(key: key);
+import '../../services/product_catalog_service.dart';
+import 'add_product_screen.dart';
+import 'farmer_theme.dart';
+
+class FarmerProductsScreen extends StatefulWidget {
+  const FarmerProductsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+  State<FarmerProductsScreen> createState() => _FarmerProductsScreenState();
+}
 
-    if (currentUserId == null) {
-      return const Scaffold(
-        body: Center(child: Text('User not logged in.')),
-      );
+class _FarmerProductsScreenState extends State<FarmerProductsScreen> {
+  final ProductCatalogService _productService = ProductCatalogService();
+
+  List<Map<String, dynamic>> _products = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  int? _deletingProductId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    if (userId == null) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Please log in to view your products.';
+      });
+      return;
     }
 
-    // Listens to products in real-time matching the integer primary key 'id' and current seller_id
-    final Stream<List<Map<String, dynamic>>> myProductsStream = Supabase.instance.client
-        .from('products')
-        .stream(primaryKey: ['id'])
-        .eq('seller_id', currentUserId)
-        .order('id', ascending: false);
+    if (!mounted) return;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text(
-          'My Products',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
-        elevation: 0,
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final products = await _productService.fetchSellerProducts(userId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _products = products
+            .where(
+              (product) =>
+                  product['status']?.toString().toLowerCase() != 'deleted',
+            )
+            .toList();
+
+        _isLoading = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Error loading seller products: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Could not load your products. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _addProduct(BuildContext context) async {
+    final published = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddNewProductScreen()),
+    );
+
+    if (!mounted) return;
+
+    if (published == true) {
+      await _loadProducts();
+    }
+  }
+
+  Future<void> _confirmDeleteProduct(Map<String, dynamic> product) async {
+    final productName = product['name']?.toString() ?? 'this product';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete Product?'),
+          content: Text(
+            'Are you sure you want to delete "$productName"? '
+            'This product will no longer appear in your active listings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (confirmed == true) {
+      await _deleteProduct(product);
+    }
+  }
+
+  Future<void> _deleteProduct(Map<String, dynamic> product) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final productId = product['id'];
+
+    if (userId == null) {
+      _showMessage('Please log in again.');
+      return;
+    }
+
+    if (productId == null) {
+      _showMessage('Product ID is missing. Cannot delete product.');
+      return;
+    }
+
+    final parsedId = productId is num
+        ? productId.toInt()
+        : int.tryParse(productId.toString());
+
+    if (parsedId == null) {
+      _showMessage('Invalid product ID.');
+      return;
+    }
+
+    setState(() {
+      _deletingProductId = parsedId;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('products')
+          .update({'status': 'deleted'})
+          .eq('id', parsedId)
+          .eq('seller_id', userId)
+          .select('id');
+
+      if (response.isEmpty) {
+        throw Exception(
+          'Product was not found or you do not have permission to delete it.',
+        );
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _products.removeWhere(
+          (item) => item['id'].toString() == parsedId.toString(),
+        );
+
+        _deletingProductId = null;
+      });
+
+      _showMessage('Product deleted successfully.');
+    } catch (error, stackTrace) {
+      debugPrint('Error deleting product: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _deletingProductId = null;
+      });
+
+      _showMessage('Could not delete product. Please try again.');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0.0;
+  }
+
+  int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _priceText(dynamic price) {
+    final value = _toDouble(price);
+
+    return '₱${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 2)}';
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: myProductsStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      child: const Column(
+        children: [
+          Icon(Icons.inventory_2_outlined, size: 64, color: Colors.black26),
+          SizedBox(height: 16),
+          Text(
+            'No products yet',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Tap "Add New Product" to list your farm produce.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error loading products: ${snapshot.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            );
-          }
+  Widget _buildProductCard(Map<String, dynamic> product) {
+    final imageUrl = product['image_url']?.toString();
+    final stock = _toInt(product['stock_quantity']);
+    final status = product['status']?.toString() ?? 'unknown';
+    final isActive = status.toLowerCase() == 'active';
+    final unit = product['unit_name']?.toString() ?? 'unit';
 
-          final products = snapshot.data ?? [];
+    final rawId = product['id'];
+    final productId = rawId is num
+        ? rawId.toInt()
+        : int.tryParse(rawId?.toString() ?? '');
 
-          if (products.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No products yet',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Your product listings will appear here after you add them.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    onPressed: () {
-                      // Navigate back or to add product screen
-                      Navigator.pop(context);
+    final isDeleting = productId != null && _deletingProductId == productId;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: imageUrl == null || imageUrl.isEmpty
+                ? Container(
+                    width: 82,
+                    height: 82,
+                    color: const Color(0xFFE8F0E7),
+                    child: const Icon(Icons.eco, color: agriGreen, size: 30),
+                  )
+                : Image.network(
+                    imageUrl,
+                    width: 82,
+                    height: 82,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 82,
+                        height: 82,
+                        color: const Color(0xFFE8F0E7),
+                        child: const Icon(
+                          Icons.eco,
+                          color: agriGreen,
+                          size: 30,
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text(
-                      'Add New Product',
-                      style: TextStyle(color: Colors.white),
-                    ),
                   ),
-                ],
-              ),
-            );
-          }
-
-          // Check for low-stock or out-of-stock items for alert box
-          final lowStockItems = products.where((p) {
-            final stock = (p['stock'] ?? 0) as int;
-            return stock <= 5;
-          }).toList();
-
-          return ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              // Low-stock alert banner
-              if (lowStockItems.isNotEmpty) ...[
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product['name']?.toString() ?? 'Unnamed product',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: agriDarkGreen,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${_priceText(product['price'])} / $unit',
+                  style: const TextStyle(
+                    color: agriGreen,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Stock: $stock $unit',
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+                const SizedBox(height: 7),
                 Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 16.0),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16.0,
-                    vertical: 12.0,
+                    horizontal: 8,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7E6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFD591)),
+                    color: isActive
+                        ? const Color(0xFFE8F5E9)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Low-stock alert: ${lowStockItems.map((e) => e['name'] ?? '').join(', ')}',
-                    style: const TextStyle(
-                      color: Color(0xFFD46B08),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      color: isActive ? agriGreen : Colors.black54,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
-
-              // Product Cards List
-              ...products.map((product) {
-                final int stock = product['stock'] ?? 0;
-                final int sold = product['sold_count'] ?? product['sold'] ?? 0;
-                final String unit = product['unit'] ?? 'kg';
-                final bool isOutOfStock = stock <= 0;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+            ),
+          ),
+          isDeleting
+              ? const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  child: Row(
-                    children: [
-                      // Rounded Product Image
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: product['image_url'] != null &&
-                                (product['image_url'] as String).isNotEmpty
-                            ? Image.network(
-                                product['image_url'],
-                                width: 70,
-                                height: 70,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                  width: 70,
-                                  height: 70,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.broken_image,
-                                      color: Colors.grey),
-                                ),
-                              )
-                            : Container(
-                                width: 70,
-                                height: 70,
-                                color: Colors.grey[200],
-                                child: const Icon(Icons.image,
-                                    color: Colors.grey),
-                              ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Product Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product['name'] ?? 'Unnamed Product',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2937),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '₱${product['price'] ?? 0}/$unit',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            // Stock Badge & Sales
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isOutOfStock
-                                        ? const Color(0xFFFFE8E8)
-                                        : const Color(0xFFE6F4EA),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    isOutOfStock
-                                        ? 'Out of stock'
-                                        : '$stock in stock',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isOutOfStock
-                                          ? const Color(0xFFE53935)
-                                          : const Color(0xFF1E8E3E),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  '$sold sold',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Edit Button
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Color(0xFF4B5563),
-                          ),
-                          onPressed: () {
-                            // Link to edit product screen if available
-                          },
-                        ),
-                      ),
-                    ],
+                )
+              : IconButton(
+                  tooltip: 'Delete product',
+                  onPressed: () {
+                    _confirmDeleteProduct(product);
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
                   ),
-                );
-              }).toList(),
-            ],
-          );
-        },
+                ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _loadProducts,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'My Products',
+            style: TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: agriDarkGreen,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Manage your farm products and listings.',
+            style: TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () => _addProduct(context),
+              icon: const Icon(Icons.add),
+              label: const Text('Add New Product'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: agriGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_errorMessage != null)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 36,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(_errorMessage!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: _loadProducts,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Try again'),
+                  ),
+                ],
+              ),
+            )
+          else if (_products.isEmpty)
+            _buildEmptyState()
+          else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Your Listings',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: agriDarkGreen,
+                  ),
+                ),
+                Text(
+                  '${_products.length} products',
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ..._products.map(_buildProductCard),
+          ],
+        ],
       ),
     );
   }

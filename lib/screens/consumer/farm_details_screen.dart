@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../providers/notification_provider.dart';
+import '../../services/product_catalog_service.dart';
 import 'cart_screen.dart';
 import 'messages_screen.dart';
 import 'product_details_screen.dart';
 
 class FarmDetailsScreen extends StatefulWidget {
+  final String? sellerId;
+
   final String farmName;
   final String location;
   final String rating;
@@ -18,21 +22,24 @@ class FarmDetailsScreen extends StatefulWidget {
   final int productsCount;
   final String followersCount;
   final int followingCount;
+  final String bio;
+  final String contactNumber;
 
   const FarmDetailsScreen({
     super.key,
-    this.farmName = 'Mang Celso Farm',
-    this.location = 'Benguet, CAR',
-    this.rating = '4.8',
-    this.reviewCount = '892',
-    this.avatarUrl =
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    this.bannerUrl =
-        'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600',
-    this.isVerified = true,
-    this.productsCount = 45,
-    this.followersCount = '1.2K',
-    this.followingCount = 89,
+    this.sellerId,
+    this.farmName = 'Farm',
+    this.location = 'Location not provided',
+    this.rating = 'N/A',
+    this.reviewCount = '0',
+    this.avatarUrl = '',
+    this.bannerUrl = '',
+    this.isVerified = false,
+    this.productsCount = 0,
+    this.followersCount = '0',
+    this.followingCount = 0,
+    this.bio = '',
+    this.contactNumber = '',
   });
 
   @override
@@ -46,41 +53,151 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   static const Color ink = Color(0xFF17211B);
   static const Color mutedText = Color(0xFF6D776F);
 
-  bool _isFollowing = false;
-  int _selectedTabIndex = 0; // 0: Products, 1: About, 2: Reviews
+  static const String defaultFarmBanner =
+      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600';
 
-  final List<Map<String, dynamic>> _farmProducts = [
-    {
-      'title': 'Organic Ampalaya (Bitter Gourd)',
-      'price': 85.0,
-      'originalPrice': 110.0,
-      'unit': 'kg',
-      'discount': '-23%',
-      'rating': 4.8,
-      'reviews': 234,
-      'location': 'Benguet, CAR',
-      'isOrganic': true,
-      'isFreshHarvest': true,
-      'isWholesale': true,
-      'image':
-          'https://images.unsplash.com/photo-1546094096-0df4bcaaa337?w=600',
-    },
-    {
-      'title': 'Malunggay (Moringa) Fresh Leaves',
-      'price': 30.0,
-      'originalPrice': null,
-      'unit': 'bundle',
-      'discount': null,
-      'rating': 4.7,
-      'reviews': 203,
-      'location': 'Benguet, CAR',
-      'isOrganic': true,
-      'isFreshHarvest': false,
-      'isWholesale': false,
-      'image':
-          'https://images.unsplash.com/photo-1515471209610-dae1c92d877f?w=600',
-    },
-  ];
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ProductCatalogService _productService = ProductCatalogService();
+
+  bool _isLoading = true;
+  int _selectedTabIndex = 0;
+
+  String? _loadError;
+
+  Map<String, dynamic>? _farmerProfile;
+  List<Map<String, dynamic>> _farmProducts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFarmDetails();
+  }
+
+  // ==============================================
+  // LOAD FARMER PROFILE AND PRODUCTS
+  // ==============================================
+
+  Future<void> _loadFarmDetails() async {
+    final sellerId = widget.sellerId;
+
+    if (sellerId == null || sellerId.isEmpty) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Farmer information is unavailable.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    try {
+      final Map<String, dynamic>? profile = await _supabase
+          .from('farmer_profiles')
+          .select(
+            'user_id, full_name, farm_name, farm_origin, bio, '
+            'contact_number, avatar_url, banner_url',
+          )
+          .eq('user_id', sellerId)
+          .maybeSingle();
+
+      final List<Map<String, dynamic>> products = await _productService
+          .fetchFarmerProducts(sellerId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _farmerProfile = profile;
+        _farmProducts = products;
+        _isLoading = false;
+        _loadError = null;
+      });
+    } catch (error) {
+      debugPrint('Farm details loading error: $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _loadError = 'Unable to load farm details. Please try again.';
+      });
+    }
+  }
+
+  // ==============================================
+  // FARMER PROFILE GETTERS
+  // ==============================================
+
+  String get _displayFarmName {
+    final value = _farmerProfile?['farm_name'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString()
+        : widget.farmName;
+  }
+
+  String get _displayFarmerName {
+    final value = _farmerProfile?['full_name'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString()
+        : 'Farmer';
+  }
+
+  String get _displayLocation {
+    final value = _farmerProfile?['farm_origin'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString()
+        : widget.location;
+  }
+
+  String get _displayBio {
+    final value = _farmerProfile?['bio'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString()
+        : widget.bio;
+  }
+
+  String get _displayAvatar {
+    final value = _farmerProfile?['avatar_url'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString().trim()
+        : widget.avatarUrl.trim();
+  }
+
+  // DATABASE BANNER FIRST, HOME SCREEN BANNER SECOND,
+  // DEFAULT BANNER LAST.
+  String get _displayBanner {
+    final profileBanner =
+        _farmerProfile?['banner_url']?.toString().trim() ?? '';
+
+    if (profileBanner.isNotEmpty) {
+      return profileBanner;
+    }
+
+    final passedBanner = widget.bannerUrl.trim();
+
+    if (passedBanner.isNotEmpty) {
+      return passedBanner;
+    }
+
+    return defaultFarmBanner;
+  }
+
+  String get _displayContact {
+    final value = _farmerProfile?['contact_number'];
+
+    return value?.toString().trim().isNotEmpty == true
+        ? value.toString()
+        : widget.contactNumber;
+  }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
@@ -94,6 +211,10 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
       );
   }
 
+  // ==============================================
+  // MAIN BUILD
+  // ==============================================
+
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -105,15 +226,20 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
       ),
       child: Scaffold(
         backgroundColor: pageBackground,
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildHeaderBanner(),
-              _buildStatsRow(),
-              _buildActionButtons(),
-              _buildTabSection(),
-              const SizedBox(height: 32),
-            ],
+        body: RefreshIndicator(
+          color: primaryGreen,
+          onRefresh: _loadFarmDetails,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                _buildHeaderBanner(),
+                _buildStatsRow(),
+                _buildActionButtons(),
+                _buildTabSection(),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
@@ -121,27 +247,40 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // 1. BANNER & HEADER OVERLAY
+  // HEADER BANNER
   // ==============================================
 
   Widget _buildHeaderBanner() {
+    final banner = _displayBanner;
+
     return Stack(
       children: [
-        // Banner background image
-        SizedBox(
+        // FARM BANNER
+        Container(
           height: 220,
           width: double.infinity,
+          color: const Color(0xFFE8F0E7),
           child: Image.network(
-            widget.bannerUrl,
+            banner,
+            width: double.infinity,
+            height: 220,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: const Color(0xFF2B8A4A),
-              child: const Icon(Icons.landscape, size: 80, color: Colors.white),
-            ),
+            errorBuilder: (_, _, _) {
+              return Container(
+                color: const Color(0xFFE8F0E7),
+                child: const Center(
+                  child: Icon(
+                    Icons.agriculture_outlined,
+                    color: primaryGreen,
+                    size: 55,
+                  ),
+                ),
+              );
+            },
           ),
         ),
 
-        // Dark gradient overlay
+        // DARK GRADIENT
         Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
@@ -158,7 +297,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           ),
         ),
 
-        // Top Navigation Action Icons
+        // TOP NAVIGATION BUTTONS
         Positioned(
           top: MediaQuery.of(context).padding.top + 8,
           left: 16,
@@ -175,12 +314,12 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                   Consumer<NotificationProvider>(
                     builder: (context, provider, _) => _circularIconButton(
                       Icons.chat_bubble_outline_rounded,
-                      badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
+                      badge: provider.unreadCount,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const MessagesScreen(),
+                            builder: (_) => const MessagesScreen(),
                           ),
                         );
                       },
@@ -189,19 +328,18 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                   const SizedBox(width: 8),
                   _circularIconButton(
                     Icons.share_outlined,
-                    onTap: () => _showMessage('Farm link copied!'),
+                    onTap: () =>
+                        _showMessage('Farm sharing is not available yet.'),
                   ),
                   const SizedBox(width: 8),
                   Consumer<NotificationProvider>(
                     builder: (context, provider, _) => _circularIconButton(
                       Icons.shopping_cart_outlined,
-                      badge: provider.unreadCount,
+                      badge: 0,
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const CartScreen(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const CartScreen()),
                         );
                       },
                     ),
@@ -212,7 +350,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           ),
         ),
 
-        // Farm Identity Info (Avatar + Name + Rating)
+        // FARMER IDENTITY
         Positioned(
           bottom: 16,
           left: 16,
@@ -220,7 +358,6 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Avatar with border
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
@@ -235,22 +372,18 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
-                  child: Image.network(
-                    widget.avatarUrl,
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 64,
-                      height: 64,
-                      color: primaryGreen,
-                      child: const Icon(Icons.person, color: Colors.white),
-                    ),
-                  ),
+                  child: _displayAvatar.isNotEmpty
+                      ? Image.network(
+                          _displayAvatar,
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _avatarFallback(),
+                        )
+                      : _avatarFallback(),
                 ),
               ),
               const SizedBox(width: 12),
-              // Farm details
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,16 +393,13 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                       children: [
                         Flexible(
                           child: Text(
-                            widget.farmName,
+                            _displayFarmName,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               shadows: [
-                                Shadow(
-                                  color: Colors.black45,
-                                  blurRadius: 4,
-                                ),
+                                Shadow(color: Colors.black45, blurRadius: 4),
                               ],
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -285,34 +415,18 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                         ],
                       ],
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _displayFarmerName,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
-                          color: Color(0xFFFFB800),
-                          size: 14,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '${widget.rating} ',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '(${widget.reviewCount})',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const Text(
-                          '  |  ',
-                          style: TextStyle(color: Colors.white54, fontSize: 11),
-                        ),
                         const Icon(
                           Icons.location_on_outlined,
                           color: Colors.white70,
@@ -321,7 +435,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                         const SizedBox(width: 2),
                         Expanded(
                           child: Text(
-                            widget.location,
+                            _displayLocation,
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 11,
@@ -341,6 +455,15 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
     );
   }
 
+  Widget _avatarFallback() {
+    return Container(
+      width: 64,
+      height: 64,
+      color: primaryGreen,
+      child: const Icon(Icons.person, color: Colors.white, size: 32),
+    );
+  }
+
   Widget _circularIconButton(
     IconData icon, {
     required VoidCallback onTap,
@@ -357,7 +480,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
             customBorder: const CircleBorder(),
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8),
               child: Icon(icon, size: 18, color: ink),
             ),
           ),
@@ -387,7 +510,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // 2. FARM STATS ROW
+  // FARM STATISTICS
   // ==============================================
 
   Widget _buildStatsRow() {
@@ -397,13 +520,13 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _statItem('${widget.productsCount}', 'Products'),
+          _statItem(_isLoading ? '...' : '${_farmProducts.length}', 'Products'),
           _verticalDivider(),
-          _statItem(widget.reviewCount, 'Reviews'),
+          _statItem('—', 'Reviews'),
           _verticalDivider(),
-          _statItem(widget.followersCount, 'Followers'),
+          _statItem('—', 'Followers'),
           _verticalDivider(),
-          _statItem('${widget.followingCount}', 'Following'),
+          _statItem('—', 'Following'),
         ],
       ),
     );
@@ -421,10 +544,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: mutedText),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: mutedText)),
       ],
     );
   }
@@ -434,7 +554,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // 3. FOLLOW & MESSAGE ACTION BUTTONS
+  // FOLLOW AND MESSAGE BUTTONS
   // ==============================================
 
   Widget _buildActionButtons() {
@@ -446,20 +566,14 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
           Expanded(
             child: ElevatedButton.icon(
               onPressed: () {
-                setState(() => _isFollowing = !_isFollowing);
                 _showMessage(
-                  _isFollowing
-                      ? 'Following ${widget.farmName}'
-                      : 'Unfollowed ${widget.farmName}',
+                  'Farm following will be available when the follow feature is implemented.',
                 );
               },
-              icon: Icon(
-                _isFollowing ? Icons.check : Icons.eco_outlined,
-                size: 18,
-              ),
-              label: Text(
-                _isFollowing ? 'Following' : 'Follow Farm',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              icon: const Icon(Icons.eco_outlined, size: 18),
+              label: const Text(
+                'Follow Farm',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryGreen,
@@ -478,9 +592,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const MessagesScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const MessagesScreen()),
                 );
               },
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
@@ -504,7 +616,7 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // 4. TAB SECTION (Products / About / Reviews)
+  // TABS
   // ==============================================
 
   Widget _buildTabSection() {
@@ -516,7 +628,10 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
         children: [
           Row(
             children: [
-              _tabHeaderItem(0, 'Products (${_farmProducts.length})'),
+              _tabHeaderItem(
+                0,
+                'Products (${_isLoading ? '...' : _farmProducts.length})',
+              ),
               _tabHeaderItem(1, 'About'),
               _tabHeaderItem(2, 'Reviews'),
             ],
@@ -527,8 +642,8 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
             child: _selectedTabIndex == 0
                 ? _buildProductsGrid()
                 : _selectedTabIndex == 1
-                    ? _buildAboutTab()
-                    : _buildReviewsTab(),
+                ? _buildAboutTab()
+                : _buildReviewsTab(),
           ),
         ],
       ),
@@ -536,7 +651,8 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   Widget _tabHeaderItem(int index, String label) {
-    bool isSelected = _selectedTabIndex == index;
+    final isSelected = _selectedTabIndex == index;
+
     return Expanded(
       child: InkWell(
         onTap: () => setState(() => _selectedTabIndex = index),
@@ -565,10 +681,55 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // PRODUCTS GRID
+  // FARM PRODUCTS
   // ==============================================
 
   Widget _buildProductsGrid() {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: CircularProgressIndicator(color: primaryGreen)),
+      );
+    }
+
+    if (_loadError != null) {
+      return Center(
+        child: Column(
+          children: [
+            const Icon(Icons.error_outline, size: 36, color: mutedText),
+            const SizedBox(height: 8),
+            Text(
+              _loadError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: mutedText, fontSize: 12),
+            ),
+            TextButton(
+              onPressed: _loadFarmDetails,
+              child: const Text('Try Again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_farmProducts.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(Icons.inventory_2_outlined, size: 40, color: mutedText),
+              SizedBox(height: 8),
+              Text(
+                'No active products yet.',
+                style: TextStyle(color: mutedText, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return GridView.builder(
       padding: EdgeInsets.zero,
       shrinkWrap: true,
@@ -581,13 +742,34 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
       ),
       itemCount: _farmProducts.length,
       itemBuilder: (context, index) {
-        final product = _farmProducts[index];
-        return _buildProductCard(product);
+        return _buildProductCard(_farmProducts[index]);
       },
     );
   }
 
   Widget _buildProductCard(Map<String, dynamic> product) {
+    final int? productId = (product['id'] as num?)?.toInt();
+
+    final double price = (product['price'] as num?)?.toDouble() ?? 0;
+
+    final String title = product['name']?.toString() ?? 'Product';
+
+    final String unit = product['unit_name']?.toString() ?? 'unit';
+
+    final String image = product['image_url']?.toString() ?? '';
+
+    final int stock = (product['stock_quantity'] as num?)?.toInt() ?? 0;
+
+    final String category =
+        product['category_name']?.toString() ?? 'Uncategorized';
+
+    final String description = product['description']?.toString() ?? '';
+
+    final String deliveryDetails =
+        product['delivery_details']?.toString() ?? '';
+
+    final bool isOrganic = product['is_organic'] == true;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -595,72 +777,60 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
         border: Border.all(color: const Color(0xFFE8ECE8)),
       ),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ProductDetailsScreen(
-                title: product['title'],
-                price: product['price'],
-                unit: product['unit'],
-                imageUrl: product['image'],
-              ),
-            ),
-          );
-        },
+        onTap: productId == null
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductDetailsScreen(
+                      productId: productId,
+                      sellerId: widget.sellerId,
+                      title: title,
+                      price: price,
+                      unit: unit,
+                      imageUrl: image,
+                      stockQuantity: stock,
+                      description: description,
+                      category: category,
+                      farmName: _displayFarmName,
+                      farmOrigin: _displayLocation,
+                      isOrganic: isOrganic,
+                      deliveryDetails: deliveryDetails,
+                    ),
+                  ),
+                );
+              },
         borderRadius: BorderRadius.circular(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image Stack with Badges
+            // PRODUCT IMAGE
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(15)),
-                  child: Image.network(
-                    product['image'],
-                    height: 110,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      height: 110,
-                      color: const Color(0xFFE8F0E7),
-                      child: const Icon(Icons.eco,
-                          color: primaryGreen, size: 36),
-                    ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
                   ),
+                  child: image.isNotEmpty
+                      ? Image.network(
+                          image,
+                          height: 110,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _productImageFallback(),
+                        )
+                      : _productImageFallback(),
                 ),
-                // Discount Badge (Top Left)
-                if (product['discount'] != null)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF3D4F),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        product['discount'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Organic Badge (Top Right)
-                if (product['isOrganic'] == true)
+                if (isOrganic)
                   Positioned(
                     top: 8,
                     right: 8,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: darkGreen,
                         borderRadius: BorderRadius.circular(6),
@@ -675,62 +845,39 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                       ),
                     ),
                   ),
-                // Sub-badges (Fresh Harvest / Wholesale bottom left)
                 Positioned(
                   bottom: 6,
                   left: 6,
-                  child: Row(
-                    children: [
-                      if (product['isFreshHarvest'] == true) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF105B31),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Fresh harvest',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                      ],
-                      if (product['isWholesale'] == true)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'Wholesale',
-                            style: TextStyle(
-                              color: darkGreen,
-                              fontSize: 8,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: stock > 0 ? darkGreen : Colors.red.shade700,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      stock > 0 ? 'In stock: $stock' : 'Out of stock',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
 
-            // Card Body Details
+            // PRODUCT INFORMATION
             Padding(
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product['title'],
+                    title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -740,87 +887,87 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
                       height: 1.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Row(
                     children: [
-                      const Icon(Icons.star,
-                          color: Color(0xFFFFB800), size: 10),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${product['rating']} (${product['reviews']})',
-                        style: const TextStyle(fontSize: 9, color: mutedText),
+                      const Icon(
+                        Icons.category_outlined,
+                        size: 10,
+                        color: mutedText,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined,
-                          size: 9, color: mutedText),
-                      const SizedBox(width: 2),
+                      const SizedBox(width: 3),
                       Expanded(
                         child: Text(
-                          product['location'],
-                          style:
-                              const TextStyle(fontSize: 8, color: mutedText),
+                          category,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, color: mutedText),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 10,
+                        color: mutedText,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          _displayLocation,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 9, color: mutedText),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                '₱${(product['price'] as double).toStringAsFixed(0)}',
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '₱${price.toStringAsFixed(2)}',
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w900,
                                   color: primaryGreen,
                                 ),
                               ),
-                              Text(
-                                '/${product['unit']}',
-                                style: const TextStyle(
-                                    fontSize: 9, color: mutedText),
-                              ),
-                            ],
-                          ),
-                          if (product['originalPrice'] != null)
+                            ),
                             Text(
-                              '₱${(product['originalPrice'] as double).toStringAsFixed(0)}',
+                              '/$unit',
                               style: const TextStyle(
                                 fontSize: 9,
                                 color: mutedText,
-                                decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                        ],
+                          ],
+                        ),
                       ),
-                      // + Add Button
-                      GestureDetector(
-                        onTap: () =>
-                            _showMessage('${product['title']} added to cart!'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2DB05F),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            '+ Add',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2DB05F),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'View',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -835,8 +982,17 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
     );
   }
 
+  Widget _productImageFallback() {
+    return Container(
+      height: 110,
+      width: double.infinity,
+      color: const Color(0xFFE8F0E7),
+      child: const Icon(Icons.eco, color: primaryGreen, size: 36),
+    );
+  }
+
   // ==============================================
-  // ABOUT TAB
+  // ABOUT FARM
   // ==============================================
 
   Widget _buildAboutTab() {
@@ -846,49 +1002,67 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
         const Text(
           'About the Farm',
           style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.bold, color: ink),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Mang Celso Farm is a family-owned organic vegetable farm situated in the highland valleys of Benguet. We specialize in highland crops grown sustainably without synthetic pesticides or chemicals.',
-          style: TextStyle(fontSize: 11, color: mutedText, height: 1.5),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Certifications & Standards',
-          style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.bold, color: ink),
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: ink,
+          ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            _badgeChip('Organic Verified', Icons.verified_user_outlined),
-            const SizedBox(width: 8),
-            _badgeChip('Good Agricultural Practice', Icons.eco_outlined),
-          ],
+        Text(
+          _displayBio.isNotEmpty
+              ? _displayBio
+              : 'This farmer has not added a farm description yet.',
+          style: const TextStyle(fontSize: 11, color: mutedText, height: 1.5),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'Farmer Information',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: ink,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _farmerInfoRow(Icons.person_outline, 'Farmer', _displayFarmerName),
+        _farmerInfoRow(Icons.store_outlined, 'Farm', _displayFarmName),
+        _farmerInfoRow(
+          Icons.location_on_outlined,
+          'Location',
+          _displayLocation,
+        ),
+        _farmerInfoRow(
+          Icons.phone_outlined,
+          'Contact',
+          _displayContact.isNotEmpty ? _displayContact : 'Not provided',
         ),
       ],
     );
   }
 
-  Widget _badgeChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEF9F1),
-        borderRadius: BorderRadius.circular(10),
-      ),
+  Widget _farmerInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 12, color: primaryGreen),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: primaryGreen,
+          Icon(icon, size: 17, color: primaryGreen),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 75,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: mutedText),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 11,
+                color: ink,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -897,97 +1071,34 @@ class _FarmDetailsScreenState extends State<FarmDetailsScreen> {
   }
 
   // ==============================================
-  // REVIEWS TAB
+  // REVIEWS
   // ==============================================
 
   Widget _buildReviewsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
           children: [
-            const Text(
-              '4.8',
+            Icon(Icons.rate_review_outlined, size: 40, color: mutedText),
+            SizedBox(height: 8),
+            Text(
+              'No reviews yet',
               style: TextStyle(
-                  fontSize: 28, fontWeight: FontWeight.w900, color: ink),
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: ink,
+              ),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: List.generate(
-                    5,
-                    (i) => const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFFFB800),
-                      size: 14,
-                    ),
-                  ),
-                ),
-                Text(
-                  'Based on ${widget.reviewCount} customer reviews',
-                  style: const TextStyle(fontSize: 10, color: mutedText),
-                ),
-              ],
+            SizedBox(height: 4),
+            Text(
+              'Customer reviews will appear here when available.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: mutedText),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        _reviewItem('Rosa M.', 5, '2 days ago', 'Super fresh produce! Delivered right on time from Benguet.'),
-        const Divider(height: 16, color: Color(0xFFF0F0F0)),
-        _reviewItem('Danilo K.', 5, '1 week ago', 'The ampalaya quality is top notch. Crisp and clean.'),
-      ],
-    );
-  }
-
-  Widget _reviewItem(String name, int stars, String timeAgo, String comment) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: primaryGreen,
-          child: Text(
-            name[0],
-            style: const TextStyle(
-                color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.bold, color: ink),
-                  ),
-                  Text(timeAgo,
-                      style: const TextStyle(fontSize: 9, color: mutedText)),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Row(
-                children: List.generate(
-                  stars,
-                  (i) => const Icon(Icons.star_rounded,
-                      color: Color(0xFFFFB800), size: 10),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                comment,
-                style: const TextStyle(fontSize: 11, color: ink, height: 1.3),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

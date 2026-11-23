@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../consumer/home_screen.dart';
-
-typedef JsonMap = Map<String, dynamic>;
 
 class FarmerProfileScreen extends StatefulWidget {
   const FarmerProfileScreen({super.key});
@@ -19,16 +18,20 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   static const Color primaryColor = Colors.green;
   static const Color backgroundColor = Color(0xFFF7F9F7);
 
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _isLoading = true;
   bool _isUploadingAvatar = false;
   bool _isUploadingBanner = false;
 
-  String? _avatarUrl;
-  String? _bannerUrl;
   String? _dbFullName;
   String? _dbContactNumber;
   String? _dbFarmName;
   String? _dbFarmOrigin;
   String? _dbBio;
+  String? _avatarUrl;
+  String? _bannerUrl;
 
   @override
   void initState() {
@@ -37,102 +40,132 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
   }
 
   Future<void> _loadFarmerProfile() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
 
     try {
-      final data = await Supabase.instance.client
+      final data = await _supabase
           .from('farmer_profiles')
           .select(
             'full_name, farm_name, farm_origin, bio, contact_number, avatar_url, banner_url',
           )
-          .eq('user_id', userId)
-          .maybeSingle();
-
-      if (!mounted) return;
-      if (data != null) {
-        setState(() {
-          _dbFullName = data['full_name']?.toString();
-          _dbFarmName = data['farm_name']?.toString();
-          _dbFarmOrigin = data['farm_origin']?.toString();
-          _dbBio = data['bio']?.toString();
-          _dbContactNumber = data['contact_number']?.toString();
-          _avatarUrl = data['avatar_url']?.toString();
-          _bannerUrl = data['banner_url']?.toString();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading farmer profile: $e');
-    }
-  }
-
-  Future<void> _pickAndUploadImage({required bool isBanner}) async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
-    final picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: isBanner ? 1400 : 800,
-      maxHeight: isBanner ? 800 : 800,
-      imageQuality: 80,
-    );
-
-    if (pickedFile == null) return;
-
-    setState(() {
-      if (isBanner) {
-        _isUploadingBanner = true;
-      } else {
-        _isUploadingAvatar = true;
-      }
-    });
-
-    try {
-      final bytes = await pickedFile.readAsBytes();
-      final rawExt = pickedFile.name.split('.').last.toLowerCase();
-      final mimeSubType = (rawExt == 'jpg' || rawExt == 'jpeg')
-          ? 'jpeg'
-          : (rawExt == 'webp' ? 'webp' : 'png');
-      final prefix = isBanner ? 'banner' : 'avatar';
-      final column = isBanner ? 'banner_url' : 'avatar_url';
-      final filePath =
-          '${user.id}/${prefix}_${DateTime.now().millisecondsSinceEpoch}.$rawExt';
-
-      await Supabase.instance.client.storage.from('farmer-images').uploadBinary(
-            filePath,
-            bytes,
-            fileOptions: FileOptions(
-              contentType: 'image/$mimeSubType',
-              upsert: true,
-            ),
-          );
-
-      final String publicUrl = Supabase.instance.client.storage
-          .from('farmer-images')
-          .getPublicUrl(filePath);
-
-      final auth = context.read<AuthProvider>();
-      final existing = await Supabase.instance.client
-          .from('farmer_profiles')
-          .select('id')
           .eq('user_id', user.id)
           .maybeSingle();
 
-      if (existing != null) {
-        await Supabase.instance.client.from('farmer_profiles').update({
-          column: publicUrl,
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('user_id', user.id);
-      } else {
-        await Supabase.instance.client.from('farmer_profiles').insert({
-          'user_id': user.id,
-          'full_name': _dbFullName ?? auth.fullName,
-          column: publicUrl,
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _dbFullName = data?['full_name']?.toString();
+        _dbFarmName = data?['farm_name']?.toString();
+        _dbFarmOrigin = data?['farm_origin']?.toString();
+        _dbBio = data?['bio']?.toString();
+        _dbContactNumber = data?['contact_number']?.toString();
+        _avatarUrl = data?['avatar_url']?.toString();
+        _bannerUrl = data?['banner_url']?.toString();
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading farmer profile: $e');
 
       if (!mounted) return;
+
+      setState(() => _isLoading = false);
+      _showMessage('Unable to load farmer profile.', isError: true);
+    }
+  }
+
+  String _metadataValue(
+    Map<String, dynamic>? metadata,
+    String firstKey, [
+    String? secondKey,
+  ]) {
+    final first = metadata?[firstKey]?.toString();
+
+    if (first != null && first.trim().isNotEmpty) {
+      return first;
+    }
+
+    if (secondKey != null) {
+      final second = metadata?[secondKey]?.toString();
+
+      if (second != null && second.trim().isNotEmpty) {
+        return second;
+      }
+    }
+
+    return '';
+  }
+
+  Future<void> _pickAndUploadImage({required bool isBanner}) async {
+    final user = _supabase.auth.currentUser;
+
+    if (user == null) {
+      _showMessage('Please log in again.', isError: true);
+      return;
+    }
+
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: isBanner ? 1400 : 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null || !mounted) return;
+
+      setState(() {
+        if (isBanner) {
+          _isUploadingBanner = true;
+        } else {
+          _isUploadingAvatar = true;
+        }
+      });
+
+      final bytes = await pickedFile.readAsBytes();
+
+      final extension = pickedFile.name.contains('.')
+          ? pickedFile.name.split('.').last.toLowerCase()
+          : 'jpg';
+
+      final mimeType = (extension == 'jpg' || extension == 'jpeg')
+          ? 'image/jpeg'
+          : extension == 'webp'
+          ? 'image/webp'
+          : 'image/png';
+
+      final imageType = isBanner ? 'banner' : 'avatar';
+      final column = isBanner ? 'banner_url' : 'avatar_url';
+
+      final filePath =
+          '${user.id}/${imageType}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      await _supabase.storage
+          .from('farmer-images')
+          .uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: mimeType, upsert: true),
+          );
+
+      final publicUrl = _supabase.storage
+          .from('farmer-images')
+          .getPublicUrl(filePath);
+
+      await _supabase.from('farmer_profiles').upsert({
+        'user_id': user.id,
+        column: publicUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'user_id');
+
+      if (!mounted) return;
+
       setState(() {
         if (isBanner) {
           _bannerUrl = publicUrl;
@@ -143,22 +176,20 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         }
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isBanner ? 'Farm banner updated!' : 'Profile photo updated!',
-          ),
-        ),
+      _showMessage(
+        isBanner ? 'Farm banner updated!' : 'Profile photo updated!',
       );
     } catch (e) {
+      debugPrint('Image upload error: $e');
+
       if (!mounted) return;
+
       setState(() {
         _isUploadingBanner = false;
         _isUploadingAvatar = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload image: $e')),
-      );
+
+      _showMessage('Failed to upload image: $e', isError: true);
     }
   }
 
@@ -169,21 +200,11 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
     required String currentFarmOrigin,
     required String currentBio,
   }) async {
-    final nameController = TextEditingController(
-      text: currentName == 'Not provided' ? '' : currentName,
-    );
-    final mobileController = TextEditingController(
-      text: currentMobile == 'Not provided' ? '' : currentMobile,
-    );
-    final farmController = TextEditingController(
-      text: currentFarmName == 'Not provided' ? '' : currentFarmName,
-    );
-    final originController = TextEditingController(
-      text: currentFarmOrigin == 'Not provided' ? '' : currentFarmOrigin,
-    );
-    final bioController = TextEditingController(
-      text: currentBio == 'No bio added yet.' ? '' : currentBio,
-    );
+    final nameController = TextEditingController(text: currentName);
+    final mobileController = TextEditingController(text: currentMobile);
+    final farmController = TextEditingController(text: currentFarmName);
+    final originController = TextEditingController(text: currentFarmOrigin);
+    final bioController = TextEditingController(text: currentBio);
 
     bool isSaving = false;
 
@@ -287,9 +308,11 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       onPressed: isSaving
                           ? null
                           : () async {
-                              final userId = Supabase
-                                  .instance.client.auth.currentUser?.id;
-                              if (userId == null) return;
+                              final user = _supabase.auth.currentUser;
+
+                              if (user == null) {
+                                return;
+                              }
 
                               setSheetState(() => isSaving = true);
 
@@ -300,70 +323,42 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 final newOrigin = originController.text.trim();
                                 final newBio = bioController.text.trim();
 
-                                final existing = await Supabase.instance.client
-                                    .from('farmer_profiles')
-                                    .select('id')
-                                    .eq('user_id', userId)
-                                    .maybeSingle();
-
-                                final JsonMap payload = {
+                                await _supabase.from('farmer_profiles').upsert({
+                                  'user_id': user.id,
                                   'full_name': newName,
                                   'contact_number': newMobile,
                                   'farm_name': newFarm,
                                   'farm_origin': newOrigin,
                                   'bio': newBio,
-                                  'updated_at':
-                                      DateTime.now().toIso8601String(),
-                                };
-
-                                if (existing != null) {
-                                  await Supabase.instance.client
-                                      .from('farmer_profiles')
-                                      .update(payload)
-                                      .eq('user_id', userId);
-                                } else {
-                                  payload['user_id'] = userId;
-                                  await Supabase.instance.client
-                                      .from('farmer_profiles')
-                                      .insert(payload);
-                                }
-
-                                if (newName.isNotEmpty) {
-                                  await Supabase.instance.client
-                                      .from('profiles')
-                                      .update({'full_name': newName})
-                                      .eq('id', userId);
-                                }
+                                  'updated_at': DateTime.now()
+                                      .toIso8601String(),
+                                }, onConflict: 'user_id');
 
                                 if (!mounted) return;
+
                                 setState(() {
-                                  _dbFullName =
-                                      newName.isNotEmpty ? newName : null;
-                                  _dbContactNumber =
-                                      newMobile.isNotEmpty ? newMobile : null;
-                                  _dbFarmName =
-                                      newFarm.isNotEmpty ? newFarm : null;
-                                  _dbFarmOrigin =
-                                      newOrigin.isNotEmpty ? newOrigin : null;
-                                  _dbBio = newBio.isNotEmpty ? newBio : null;
+                                  _dbFullName = newName;
+                                  _dbContactNumber = newMobile;
+                                  _dbFarmName = newFarm;
+                                  _dbFarmOrigin = newOrigin;
+                                  _dbBio = newBio;
                                 });
 
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('All profile changes saved!'),
-                                  ),
-                                );
+
+                                _showMessage('All profile changes saved!');
                               } catch (e) {
+                                debugPrint('Profile save error: $e');
+
                                 setSheetState(() => isSaving = false);
+
                                 if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error saving profile: $e'),
-                                  ),
+
+                                _showMessage(
+                                  'Error saving profile: $e',
+                                  isError: true,
                                 );
                               }
                             },
@@ -383,59 +378,126 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
         );
       },
     );
+
+    nameController.dispose();
+    mobileController.dispose();
+    farmController.dispose();
+    originController.dispose();
+    bioController.dispose();
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text(
-          'Are you sure you want to log out of your account?',
-        ),
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Log Out'),
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
 
     if (shouldLogout != true || !context.mounted) return;
-    final auth = context.read<AuthProvider>();
-    await auth.logout();
-    if (!context.mounted) return;
 
-    if (auth.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            auth.errorMessage ?? 'Logout failed. Please try again.',
+    try {
+      final auth = context.read<AuthProvider>();
+
+      await auth.logout();
+
+      if (!context.mounted) return;
+
+      if (auth.isLoggedIn) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              auth.errorMessage ?? 'Logout failed. Please try again.',
+            ),
           ),
-        ),
-      );
-      return;
-    }
+        );
+        return;
+      }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+    }
+  }
+
+  void _goToConsumerDashboard(BuildContext context) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }
 
-  void _goToConsumerDashboard(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  Widget _buildProfileInfoTile({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: primaryColor, size: 22),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value.isEmpty ? 'Not provided' : value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -448,39 +510,35 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
           final currentUser = auth.currentUser;
           final metadata = currentUser?.userMetadata;
 
-          final displayName = (_dbFullName != null && _dbFullName!.isNotEmpty)
+          final displayName = (_dbFullName?.isNotEmpty == true)
               ? _dbFullName!
-              : auth.fullName;
+              : (auth.fullName.isNotEmpty
+                    ? auth.fullName
+                    : _metadataValue(metadata, 'full_name', 'name'));
 
           final email = currentUser?.email ?? 'Not provided';
 
-          final mobile =
-              (_dbContactNumber != null && _dbContactNumber!.isNotEmpty)
-                  ? _dbContactNumber!
-                  : (metadata?['mobile']?.toString() ??
-                      metadata?['phone']?.toString() ??
-                      'Not provided');
+          final mobile = (_dbContactNumber?.isNotEmpty == true)
+              ? _dbContactNumber!
+              : _metadataValue(metadata, 'mobile', 'phone');
 
-          final farmName = (_dbFarmName != null && _dbFarmName!.isNotEmpty)
+          final farmName = (_dbFarmName?.isNotEmpty == true)
               ? _dbFarmName!
-              : (metadata?['farm_name']?.toString() ??
-                  metadata?['farmName']?.toString() ??
-                  'Not provided');
+              : _metadataValue(metadata, 'farm_name', 'farmName');
 
-          final farmOrigin =
-              (_dbFarmOrigin != null && _dbFarmOrigin!.isNotEmpty)
-                  ? _dbFarmOrigin!
-                  : 'Not provided';
+          final farmOrigin = _dbFarmOrigin ?? '';
+          final bio = _dbBio ?? '';
 
-          final bio = (_dbBio != null && _dbBio!.isNotEmpty)
-              ? _dbBio!
-              : 'No bio added yet.';
+          if (_isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
+          }
 
           return SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(
                     height: 215,
@@ -496,8 +554,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                             width: double.infinity,
                             decoration: BoxDecoration(
                               color: Colors.green.shade700,
-                              image: (_bannerUrl != null &&
-                                      _bannerUrl!.isNotEmpty)
+                              image:
+                                  (_bannerUrl != null && _bannerUrl!.isNotEmpty)
                                   ? DecorationImage(
                                       image: NetworkImage(_bannerUrl!),
                                       fit: BoxFit.cover,
@@ -511,8 +569,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                     child: Icon(
                                       Icons.landscape_outlined,
                                       size: 56,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.35),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.35,
+                                      ),
                                     ),
                                   ),
                                 Positioned(
@@ -524,8 +583,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.55),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.55,
+                                      ),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -578,8 +638,9 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                   customBorder: const CircleBorder(),
                                   onTap: _isUploadingAvatar
                                       ? null
-                                      : () =>
-                                          _pickAndUploadImage(isBanner: false),
+                                      : () => _pickAndUploadImage(
+                                          isBanner: false,
+                                        ),
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
@@ -589,7 +650,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                     child: CircleAvatar(
                                       radius: 50,
                                       backgroundColor: Colors.green.shade100,
-                                      backgroundImage: (_avatarUrl != null &&
+                                      backgroundImage:
+                                          (_avatarUrl != null &&
                                               _avatarUrl!.isNotEmpty)
                                           ? NetworkImage(_avatarUrl!)
                                           : null,
@@ -598,13 +660,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                               color: primaryColor,
                                             )
                                           : (_avatarUrl == null ||
-                                                  _avatarUrl!.isEmpty)
-                                              ? const Icon(
-                                                  Icons.person,
-                                                  size: 52,
-                                                  color: primaryColor,
-                                                )
-                                              : null,
+                                                _avatarUrl!.isEmpty)
+                                          ? const Icon(
+                                              Icons.person,
+                                              size: 52,
+                                              color: primaryColor,
+                                            )
+                                          : null,
                                     ),
                                   ),
                                 ),
@@ -640,7 +702,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          displayName,
+                          displayName.isEmpty ? 'Farmer' : displayName,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 23,
@@ -680,11 +742,13 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Farm & Account Details',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                            const Expanded(
+                              child: Text(
+                                'Farm & Account Details',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             ElevatedButton.icon(
@@ -701,9 +765,8 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                                 backgroundColor: primaryColor,
                                 foregroundColor: Colors.white,
                                 minimumSize: const Size(120, 44),
-                                tapTargetSize: MaterialTapTargetSize.padded,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                                  horizontal: 12,
                                   vertical: 10,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -714,32 +777,32 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.person_outline,
                           title: 'Full Name',
                           value: displayName,
                         ),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.store_outlined,
                           title: 'Farm Name',
                           value: farmName,
                         ),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.location_on_outlined,
                           title: 'Farm Origin / Location',
                           value: farmOrigin,
                         ),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.phone_outlined,
                           title: 'Contact Number',
                           value: mobile,
                         ),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.info_outline,
                           title: 'Farm Bio',
                           value: bio,
                         ),
-                        _ProfileInfoTile(
+                        _buildProfileInfoTile(
                           icon: Icons.email_outlined,
                           title: 'Email Address',
                           value: email,
@@ -748,9 +811,7 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              _goToConsumerDashboard(context);
-                            },
+                            onPressed: () => _goToConsumerDashboard(context),
                             icon: const Icon(Icons.shopping_bag_outlined),
                             label: const Text('Back to Consumer Home'),
                             style: ElevatedButton.styleFrom(
@@ -790,45 +851,6 @@ class _FarmerProfileScreenState extends State<FarmerProfileScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _ProfileInfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  const _ProfileInfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.green.shade700),
-        title: Text(
-          title,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-          ),
-        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -15,7 +16,7 @@ class ImageData {
 class EditProductScreen extends StatefulWidget {
   final Map<String, dynamic> product;
 
-  const EditProductScreen({Key? key, required this.product}) : super(key: key);
+  const EditProductScreen({super.key, required this.product});
 
   @override
   State<EditProductScreen> createState() => _EditProductScreenState();
@@ -43,10 +44,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.product['name'] ?? '');
-    priceController = TextEditingController(text: (widget.product['price'] ?? 0).toString());
-    stockController = TextEditingController(text: (widget.product['stock_quantity'] ?? 0).toString());
-    descriptionController = TextEditingController(text: widget.product['description'] ?? '');
-    deliveryController = TextEditingController(text: widget.product['delivery_details'] ?? '');
+    priceController = TextEditingController(
+      text: (widget.product['price'] ?? 0).toString(),
+    );
+    stockController = TextEditingController(
+      text: (widget.product['stock_quantity'] ?? 0).toString(),
+    );
+    descriptionController = TextEditingController(
+      text: widget.product['description'] ?? '',
+    );
+    deliveryController = TextEditingController(
+      text: widget.product['delivery_details'] ?? '',
+    );
     isOrganic = widget.product['is_organic'] ?? true;
 
     _fetchExistingImages();
@@ -122,27 +131,30 @@ class _EditProductScreenState extends State<EditProductScreen> {
       final productId = widget.product['id'];
 
       // 1. UPDATE products table
-      await supabase.from('products').update({
-        'name': nameController.text,
-        'price': double.tryParse(priceController.text) ?? 0.0,
-        'stock_quantity': int.tryParse(stockController.text) ?? 0,
-        'description': descriptionController.text,
-        'delivery_details': deliveryController.text,
-        'is_organic': isOrganic,
-      }).eq('id', productId);
+      await supabase
+          .from('products')
+          .update({
+            'name': nameController.text,
+            'price': double.tryParse(priceController.text) ?? 0.0,
+            'stock_quantity': int.tryParse(stockController.text) ?? 0,
+            'description': descriptionController.text,
+            'delivery_details': deliveryController.text,
+            'is_organic': isOrganic,
+          })
+          .eq('id', productId);
 
       // 2. Upload any newly added binary images
       for (int i = 0; i < productImages.length; i++) {
         final img = productImages[i];
 
         if (img.bytes != null) {
-          final fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.${img.extension}';
+          final fileName =
+              '${DateTime.now().millisecondsSinceEpoch}_$i.${img.extension}';
           final storagePath = '$userId/$fileName';
 
-          await supabase.storage.from('product_images').uploadBinary(
-                storagePath,
-                img.bytes!,
-              );
+          await supabase.storage
+              .from('product_images')
+              .uploadBinary(storagePath, img.bytes!);
 
           final String imageUrl = supabase.storage
               .from('product_images')
@@ -165,9 +177,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
     } catch (e) {
       debugPrint('Error updating product: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -201,7 +212,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     try {
       final productId = widget.product['id'];
-      await supabase.from('product_images').delete().eq('product_id', productId);
+      await supabase
+          .from('product_images')
+          .delete()
+          .eq('product_id', productId);
       await supabase.from('products').delete().eq('id', productId);
 
       if (mounted) {
@@ -223,7 +237,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: primaryGreen,
-        title: const Text('Edit Product', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Edit Product',
+          style: TextStyle(color: Colors.white),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 18),
           onPressed: () => Navigator.pop(context),
@@ -242,25 +259,48 @@ class _EditProductScreenState extends State<EditProductScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('PRODUCT IMAGES', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Text(
+                    'PRODUCT IMAGES',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
                   const SizedBox(height: 8),
                   _buildImageGrid(),
                   const SizedBox(height: 20),
                   _buildTextField('PRODUCT NAME', nameController),
                   _buildTextField('PRICE (₱)', priceController, isNumber: true),
-                  _buildTextField('STOCK QUANTITY', stockController, isNumber: true),
-                  _buildTextField('DESCRIPTION', descriptionController, maxLines: 3),
-                  _buildTextField('DELIVERY DETAILS', deliveryController, maxLines: 2),
+                  _buildTextField(
+                    'STOCK QUANTITY',
+                    stockController,
+                    isNumber: true,
+                  ),
+                  _buildTextField(
+                    'DESCRIPTION',
+                    descriptionController,
+                    maxLines: 3,
+                  ),
+                  _buildTextField(
+                    'DELIVERY DETAILS',
+                    deliveryController,
+                    maxLines: 2,
+                  ),
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryGreen,
+                      ),
                       onPressed: isLoading ? null : _saveChanges,
                       child: isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16)),
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -286,7 +326,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.add_a_photo_outlined, color: Colors.grey),
+                child: const Icon(
+                  Icons.add_a_photo_outlined,
+                  color: Colors.grey,
+                ),
               ),
             );
           }
@@ -302,8 +345,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: img.existingUrl != null
-                      ? Image.network(img.existingUrl!, width: 90, height: 90, fit: BoxFit.cover)
-                      : Image.memory(img.bytes!, width: 90, height: 90, fit: BoxFit.cover),
+                      ? Image.network(
+                          img.existingUrl!,
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                        )
+                      : Image.memory(
+                          img.bytes!,
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 Positioned(
                   top: 4,
@@ -311,7 +364,10 @@ class _EditProductScreenState extends State<EditProductScreen> {
                   child: GestureDetector(
                     onTap: () async {
                       if (img.imageId != null) {
-                        await supabase.from('product_images').delete().eq('id', img.imageId!);
+                        await supabase
+                            .from('product_images')
+                            .delete()
+                            .eq('id', img.imageId!);
                       }
                       setState(() {
                         productImages.removeAt(index);
@@ -332,13 +388,21 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isNumber = false, int maxLines = 1}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool isNumber = false,
+    int maxLines = 1,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
           const SizedBox(height: 6),
           TextFormField(
             controller: controller,
@@ -347,7 +411,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
