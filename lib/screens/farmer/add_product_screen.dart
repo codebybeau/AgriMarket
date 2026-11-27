@@ -1,8 +1,18 @@
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+
+// Model class for multi-image picker
+class ImageData {
+  final Uint8List bytes;
+  final String extension;
+
+  ImageData({
+    required this.bytes,
+    required this.extension,
+  });
+}
 
 class AddNewProductScreen extends StatefulWidget {
   const AddNewProductScreen({super.key});
@@ -28,12 +38,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
   bool isLoading = false;
   bool isFetchingDropdowns = true;
 
-  Uint8List? selectedImageBytes;
-  String? selectedImageExtension;
-
+  // Multi-Image Picking Variables
+  List<ImageData> selectedImages = [];
   List<Map<String, dynamic>> categoriesList = [];
   List<Map<String, dynamic>> unitsList = [];
-
   int? selectedCategoryId;
   int? selectedUnitId;
 
@@ -61,78 +69,56 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
-  // Pick a product image from the gallery.
-  Future<void> _pickImage() async {
+  //--- 1. PICK MULTIPLE IMAGES FROM GALLERY ---
+  Future<void> _pickImages() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-
-      if (image == null) return;
-
-      final bytes = await image.readAsBytes();
-      final extension = image.name.contains('.')
-          ? image.name.split('.').last.toLowerCase()
-          : 'jpg';
-
-      if (!mounted) return;
-
-      setState(() {
-        selectedImageBytes = bytes;
-        selectedImageExtension = extension;
-      });
+      final List<XFile> images = await _picker.pickMultiImage();
+      if (images.isNotEmpty) {
+        final List<ImageData> newImages = [];
+        for (final image in images) {
+          final bytes = await image.readAsBytes();
+          final ext = image.name.split('.').last;
+          newImages.add(ImageData(bytes: bytes, extension: ext));
+        }
+        setState(() {
+          selectedImages.addAll(newImages);
+        });
+      }
     } catch (e) {
       debugPrint('Error picking image: $e');
-      _showMessage('Could not select the product image.');
     }
   }
 
-  // Fetch categories and units from Supabase.
+  //--- 2. FETCH DROPDOWNS FROM DATABASE ---
   Future<void> _fetchDropdownData() async {
     try {
-      final categoriesData = await supabase
-          .from('categories')
-          .select('id, name');
-
+      final categoriesData = await supabase.from('categories').select('id, name');
       final unitsData = await supabase.from('units').select('id, name');
 
       if (!mounted) return;
-
       setState(() {
         categoriesList = List<Map<String, dynamic>>.from(categoriesData);
-
         unitsList = List<Map<String, dynamic>>.from(unitsData);
-
-        if (categoriesList.isNotEmpty) {
-          selectedCategoryId = (categoriesList.first['id'] as num).toInt();
-        }
-
-        if (unitsList.isNotEmpty) {
-          selectedUnitId = (unitsList.first['id'] as num).toInt();
-        }
-
+        if (categoriesList.isNotEmpty) selectedCategoryId = categoriesList[0]['id'];
+        if (unitsList.isNotEmpty) selectedUnitId = unitsList[0]['id'];
         isFetchingDropdowns = false;
       });
     } catch (e) {
       debugPrint('Error fetching dropdowns: $e');
-
       if (!mounted) return;
-
       setState(() {
         isFetchingDropdowns = false;
       });
-
       _showMessage('Could not load categories and units.');
     }
   }
 
-  // Validate and publish the product.
+  //--- 3. PUBLISH PRODUCT & MULTIPLE IMAGES TO DATABASE ---
   Future<void> _publishProduct() async {
     final name = nameController.text.trim();
     final price = double.tryParse(priceController.text.trim());
@@ -142,17 +128,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       _showMessage('Enter a product name and a valid price greater than 0.');
       return;
     }
-
-    if (stock == null || stock < 0) {
-      _showMessage('Enter a valid stock quantity.');
+    if (selectedImages.isEmpty) {
+      _showMessage('Please select at least one product photo.');
       return;
     }
-
-    if (selectedImageBytes == null) {
-      _showMessage('Please select a product photo.');
-      return;
-    }
-
     if (selectedCategoryId == null || selectedUnitId == null) {
       _showMessage('Please select a category and unit.');
       return;
@@ -160,15 +139,10 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
     double? wholesalePrice;
     int? wholesaleMinQty;
-
     if (isWholesaleActive) {
       wholesalePrice = double.tryParse(wholesalePriceController.text.trim());
       wholesaleMinQty = int.tryParse(wholesaleMinQtyController.text.trim());
-
-      if (wholesalePrice == null ||
-          wholesalePrice <= 0 ||
-          wholesaleMinQty == null ||
-          wholesaleMinQty <= 0) {
+      if (wholesalePrice == null || wholesalePrice <= 0 || wholesaleMinQty == null || wholesaleMinQty <= 0) {
         _showMessage('Enter a valid wholesale price and minimum quantity.');
         return;
       }
@@ -176,37 +150,20 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
     setState(() => isLoading = true);
 
-    String? uploadedStoragePath;
-
     try {
       final userId = supabase.auth.currentUser?.id;
-
       if (userId == null) {
         throw Exception('You must be logged in to publish a product.');
       }
 
-      // Upload the image first, so a failed upload does not create
-      // a product record without its image.
-      final extension = selectedImageExtension ?? 'jpg';
-      final fileName = '${DateTime.now().microsecondsSinceEpoch}.$extension';
-      uploadedStoragePath = '$userId/$fileName';
-
-      await supabase.storage
-          .from('product_images')
-          .uploadBinary(uploadedStoragePath, selectedImageBytes!);
-
-      final imageUrl = supabase.storage
-          .from('product_images')
-          .getPublicUrl(uploadedStoragePath);
-
-      // Create the main product record.
+      // A. Create the main product record
       final productResponse = await supabase
           .from('products')
           .insert({
             'seller_id': userId,
             'name': name,
             'price': price,
-            'stock_quantity': stock,
+            'stock_quantity': stock ?? 0,
             'unit_id': selectedUnitId,
             'category_id': selectedCategoryId,
             'description': descriptionController.text.trim(),
@@ -219,14 +176,30 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
       final newProductId = productResponse['id'];
 
-      // Save the image URL.
-      await supabase.from('product_images').insert({
-        'product_id': newProductId,
-        'image_url': imageUrl,
-        'display_order': 1,
-      });
+      // B. Upload all selected images to Supabase Storage and product_images table
+      for (int i = 0; i < selectedImages.length; i++) {
+        final img = selectedImages[i];
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_$i.${img.extension}';
+        final storagePath = '$userId/$fileName';
 
-      // Save wholesale details when enabled.
+        // Upload Binary Bytes
+        await supabase.storage.from('product_images').uploadBinary(
+              storagePath,
+              img.bytes,
+            );
+
+        // Get Public URL
+        final String imageUrl = supabase.storage.from('product_images').getPublicUrl(storagePath);
+
+        // Save URL record to product_images table
+        await supabase.from('product_images').insert({
+          'product_id': newProductId,
+          'image_url': imageUrl,
+          'display_order': i + 1, // First image display_order is 1
+        });
+      }
+
+      // C. Insert into wholesale details if active
       if (isWholesaleActive) {
         await supabase.from('product_wholesale_details').insert({
           'product_id': newProductId,
@@ -235,26 +208,14 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         });
       }
 
-      if (!mounted) return;
-
-      _showMessage('Product published successfully!');
-      Navigator.pop(context, true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product published successfully!')),
+        );
+        Navigator.pop(context);
+      }
     } catch (e) {
       debugPrint('Error publishing product: $e');
-
-      // Best-effort cleanup of the uploaded image if a later database
-      // operation fails. Database records already inserted may still
-      // require cleanup if the failure occurred after product creation.
-      if (uploadedStoragePath != null) {
-        try {
-          await supabase.storage.from('product_images').remove([
-            uploadedStoragePath,
-          ]);
-        } catch (cleanupError) {
-          debugPrint('Image cleanup failed: $cleanupError');
-        }
-      }
-
       _showMessage('Could not publish product: $e');
     } finally {
       if (mounted) {
@@ -291,66 +252,27 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildSectionLabel('PRODUCT IMAGES'),
-                  _buildImageUploaders(),
+                  _buildMultiImageUploader(),
                   const SizedBox(height: 20),
-                  _buildInputField(
-                    'PRODUCT NAME',
-                    'e.g. Organic Ampalaya (Bitter Gourd)',
-                    nameController,
-                  ),
-                  _buildInputField(
-                    'PRICE (₱)',
-                    '0.00',
-                    priceController,
-                    isNumber: true,
-                  ),
-                  _buildInputField(
-                    'STOCK QUANTITY',
-                    '0',
-                    stockController,
-                    isNumber: true,
-                  ),
-                  _buildDropdownField(
-                    'UNIT',
-                    selectedUnitId,
-                    unitsList,
-                    (value) => setState(() => selectedUnitId = value),
-                  ),
+                  _buildInputField('PRODUCT NAME', 'e.g. Organic Ampalaya (Bitter Gourd)', nameController),
+                  _buildInputField('PRICE (₱)', '0.00', priceController, isNumber: true),
+                  _buildInputField('STOCK QUANTITY', '0', stockController, isNumber: true),
+                  _buildDropdownField('UNIT', selectedUnitId, unitsList, (newValue) {
+                    setState(() => selectedUnitId = newValue);
+                  }),
+                  _buildDropdownField('CATEGORY', selectedCategoryId, categoriesList, (newValue) {
+                    setState(() => selectedCategoryId = newValue);
+                  }),
                   const SizedBox(height: 10),
                   _buildWholesaleToggle(),
-                  const SizedBox(height: 20),
                   if (isWholesaleActive) ...[
-                    _buildInputField(
-                      'WHOLESALE PRICE (₱)',
-                      '0.00',
-                      wholesalePriceController,
-                      isNumber: true,
-                    ),
-                    _buildInputField(
-                      'WHOLESALE MINIMUM QUANTITY',
-                      'e.g. 10',
-                      wholesaleMinQtyController,
-                      isNumber: true,
-                    ),
+                    const SizedBox(height: 20),
+                    _buildInputField('WHOLESALE PRICE (₱)', '0.00', wholesalePriceController, isNumber: true),
+                    _buildInputField('WHOLESALE MINIMUM QUANTITY', 'e.g. 10', wholesaleMinQtyController, isNumber: true),
                   ],
-                  _buildDropdownField(
-                    'CATEGORY',
-                    selectedCategoryId,
-                    categoriesList,
-                    (value) => setState(() => selectedCategoryId = value),
-                  ),
-                  _buildInputField(
-                    'DESCRIPTION',
-                    'Describe your product...',
-                    descriptionController,
-                    maxLines: 4,
-                  ),
-                  _buildInputField(
-                    'DELIVERY DETAILS',
-                    'e.g. Ships within 1-2 days...',
-                    deliveryController,
-                    maxLines: 2,
-                  ),
+                  const SizedBox(height: 20),
+                  _buildInputField('DESCRIPTION', 'Describe your product...', descriptionController, maxLines: 4),
+                  _buildInputField('DELIVERY DETAILS', 'e.g. Ships within 1-2 days...', deliveryController, maxLines: 2),
                   const SizedBox(height: 10),
                   _buildOrganicCheckbox(),
                   const SizedBox(height: 30),
@@ -364,7 +286,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
 
   Widget _buildSectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
         text,
         style: TextStyle(
@@ -391,19 +313,14 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
           _buildSectionLabel(label),
           TextFormField(
             controller: controller,
-            keyboardType: isNumber
-                ? const TextInputType.numberWithOptions(decimal: true)
-                : TextInputType.text,
+            keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
             maxLines: maxLines,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(color: Colors.grey.shade400),
               filled: true,
               fillColor: inputFillColor,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: borderColor),
@@ -425,10 +342,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     List<Map<String, dynamic>> items,
     ValueChanged<int?> onChanged,
   ) {
-    final validValue =
-        items.any((item) => (item['id'] as num).toInt() == selectedValue)
-        ? selectedValue
-        : null;
+    final validValue = items.any((item) => item['id'] == selectedValue) ? selectedValue : null;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -451,7 +365,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
                 icon: const Icon(Icons.keyboard_arrow_down),
                 items: items.map((item) {
                   return DropdownMenuItem<int>(
-                    value: (item['id'] as num).toInt(),
+                    value: item['id'] as int,
                     child: Text(item['name'].toString()),
                   );
                 }).toList(),
@@ -464,61 +378,99 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
     );
   }
 
-  Widget _buildImageUploaders() {
-    return Row(
-      children: [
-        _buildDashedBox(
-          Icons.camera_alt,
-          selectedImageBytes == null ? 'Add Photo' : 'Change Photo',
-          isMainPhoto: true,
-        ),
-        const SizedBox(width: 12),
-        _buildDashedBox(Icons.add, 'Optional', isMainPhoto: false),
-      ],
-    );
-  }
-
-  Widget _buildDashedBox(
-    IconData icon,
-    String text, {
-    required bool isMainPhoto,
-  }) {
-    final hasImage = isMainPhoto && selectedImageBytes != null;
-
-    return GestureDetector(
-      onTap: isMainPhoto ? _pickImage : null,
-      child: Container(
-        width: 90,
-        height: 90,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-          image: hasImage
-              ? DecorationImage(
-                  image: MemoryImage(selectedImageBytes!),
-                  fit: BoxFit.cover,
-                )
-              : null,
-        ),
-        child: hasImage
-            ? null
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, color: Colors.grey.shade400, size: 28),
-                  if (text.isNotEmpty) ...[
+  // MULTI-IMAGE HORIZONTAL PREVIEW GRID
+  Widget _buildMultiImageUploader() {
+    return SizedBox(
+      height: 95,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: selectedImages.length + 1,
+        itemBuilder: (context, index) {
+          if (index == selectedImages.length) {
+            return GestureDetector(
+              onTap: _pickImages,
+              child: Container(
+                width: 90,
+                height: 90,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      selectedImages.isEmpty ? Icons.camera_alt : Icons.add_a_photo_outlined,
+                      color: Colors.grey.shade500,
+                      size: 28,
+                    ),
                     const SizedBox(height: 4),
                     Text(
-                      text,
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
+                      selectedImages.isEmpty ? 'Add Photos' : 'Add More',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
                     ),
                   ],
-                ],
+                ),
               ),
+            );
+          }
+
+          final img = selectedImages[index];
+          return Container(
+            width: 90,
+            height: 90,
+            margin: const EdgeInsets.only(right: 12),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    img.bytes,
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                if (index == 0)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+                      ),
+                      child: const Text(
+                        'Main Photo',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedImages.removeAt(index);
+                      });
+                    },
+                    child: const CircleAvatar(
+                      radius: 11,
+                      backgroundColor: Colors.red,
+                      child: Icon(Icons.close, size: 12, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -532,9 +484,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isWholesaleActive
-              ? primaryGreen.withValues(alpha: 0.1)
-              : inputFillColor,
+          color: isWholesaleActive ? primaryGreen.withValues(alpha: 0.1) : inputFillColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isWholesaleActive ? primaryGreen : borderColor,
@@ -545,11 +495,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
           children: [
             const Text(
               'Wholesale pricing',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
             ),
             const SizedBox(height: 4),
             Text(
@@ -568,9 +514,7 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isOrganic
-              ? primaryGreen.withValues(alpha: 0.1)
-              : inputFillColor,
+          color: isOrganic ? primaryGreen.withValues(alpha: 0.1) : inputFillColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isOrganic ? primaryGreen : borderColor),
         ),
@@ -611,18 +555,11 @@ class _AddNewProductScreenState extends State<AddNewProductScreen> {
             ? const SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
               )
             : const Text(
                 'Publish Product',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
       ),
     );

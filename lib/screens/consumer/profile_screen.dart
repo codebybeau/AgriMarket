@@ -5,11 +5,14 @@ import 'package:provider/provider.dart';
 import 'settings_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'marketplace_screen.dart';
 import 'home_screen.dart';
 import 'categories_screen.dart';
-import 'orders_screen.dart';
+import 'my_purchase_screen.dart';
+import 'agripay_screen.dart';
 import 'notification_screen.dart';
+import 'messages_screen.dart';
 import 'cart_screen.dart';
 import '../farmer/farmer_home_screen.dart';
 
@@ -31,6 +34,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color mutedText = Color(0xFF6D776F);
   static const Color highlightOrange = Color(0xFFD97706);
 
+  // ==========================================
+  // NAVIGATION
+  // ==========================================
+
   void _goToPage(Widget page) {
     Navigator.pushReplacement(
       context,
@@ -38,6 +45,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         pageBuilder: (_, _, _) => page,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
+      ),
+    );
+  }
+
+  // Opens My Purchase screen with the selected tab.
+  void _openPurchases(String initialTab) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MyPurchaseScreen(initialTab: initialTab),
       ),
     );
   }
@@ -70,17 +87,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             children: [
               _buildProfileHeader(),
+
+              // ==========================================
+              // MY PURCHASES
+              // ==========================================
               _buildPurchasesSection(),
+
               _buildWalletSection(),
               _buildFinancialServices(),
               _buildMoreActivities(),
               _buildSupportSection(),
-              const SizedBox(
-                height: 110,
-              ), // Padding to prevent bottom floating bar overlap
+
+              const SizedBox(height: 110),
             ],
           ),
         ),
+
+        // EXISTING FLOATING BOTTOM NAVIGATION
         bottomNavigationBar: _buildBottomNavigation(),
       ),
     );
@@ -116,17 +139,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () => _goToPage(const SettingsScreen()),
                   ),
                   const SizedBox(width: 8),
-                  _headerAction(
-                    Icons.shopping_cart_outlined,
-                    onTap: () => _goToPage(const CartScreen()),
-                  ),
-                  const SizedBox(width: 8),
-                  Consumer<NotificationProvider>(
-                    builder: (context, provider, _) => _headerAction(
-                      Icons.chat_bubble_outline_rounded,
-                      onTap: () => _goToPage(const NotificationScreen()),
-                      badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
+
+                  // Shopping Cart Icon
+                  Consumer<CartProvider>(
+                    builder: (context, cartProvider, _) => _headerAction(
+                      Icons.shopping_cart_outlined,
+                      onTap: () => _goToPage(const CartScreen()),
+                      badge: cartProvider.totalCartCount,
                     ),
+                  ),
+
+                  const SizedBox(width: 8),
+
+                  // Chat / Messages Icon
+                  _headerAction(
+                    Icons.chat_bubble_outline_rounded,
+                    onTap: () => _goToPage(const MessagesScreen()),
                   ),
                 ],
               ),
@@ -169,8 +197,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           isLoggedIn
                               ? (auth.role == 'farmer'
-                                  ? 'Farmer Account'
-                                  : 'Consumer Account')
+                                    ? 'Farmer Account'
+                                    : 'Consumer Account')
                               : 'Sign in or create an account',
                           style: const TextStyle(
                             color: Colors.white70,
@@ -184,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Guest auth buttons
+            // Guest authentication buttons
             if (!isLoggedIn)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -240,7 +268,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ==========================================
-  // SECTIONS
+  // MY PURCHASES SECTION
   // ==========================================
 
   Widget _buildPurchasesSection() {
@@ -250,43 +278,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildSectionHeader(
             'My Purchases',
             'View Purchase History',
-            () => _goToPage(const OrdersScreen()),
+            () => _openPurchases('All'),
           ),
+
           const Divider(height: 1, color: Color(0xFFE8ECE8)),
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               children: [
                 Expanded(
-                  child: _buildActionIcon(
+                  child: _buildPurchaseAction(
                     Icons.account_balance_wallet_outlined,
                     'To Pay',
-                    badge: 0,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    'Pending',
                   ),
                 ),
                 Expanded(
-                  child: _buildActionIcon(
+                  child: _buildPurchaseAction(
                     Icons.inventory_2_outlined,
                     'To Ship',
-                    badge: 2,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    'To Ship',
                   ),
                 ),
                 Expanded(
-                  child: _buildActionIcon(
+                  child: _buildPurchaseAction(
                     Icons.local_shipping_outlined,
                     'To Receive',
-                    badge: 1,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                    'To Receive',
                   ),
                 ),
                 Expanded(
-                  child: _buildActionIcon(
-                    Icons.assignment_return_outlined,
-                    'Return/Refund',
-                    badge: 0,
-                    onTap: () => _goToPage(const OrdersScreen()),
+                  child: _buildPurchaseAction(
+                    Icons.assignment_turned_in_outlined,
+                    'Completed',
+                    'Completed',
                   ),
                 ),
               ],
@@ -296,6 +322,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  Widget _buildPurchaseAction(IconData icon, String label, String tab) {
+    return InkWell(
+      onTap: () => _openPurchases(tab),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFF4F5A52), size: 24),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: ink,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // WALLET SECTION
+  // ==========================================
 
   Widget _buildWalletSection() {
     return _buildCardWrapper(
@@ -311,9 +365,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: _buildActionIcon(
                     Icons.account_balance_wallet,
                     'AgriPay',
-                    subtitle: '₱ 0.00',
+                    subtitle: '₱5,240.75',
                     iconColor: primaryGreen,
-                    onTap: () => _showMessage('AgriPay Balance'),
+                    onTap: () => _goToPage(const AgriPayScreen()),
                   ),
                 ),
                 Expanded(
@@ -344,6 +398,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // FINANCIAL SERVICES
+  // ==========================================
 
   Widget _buildFinancialServices() {
     return _buildCardWrapper(
@@ -378,6 +436,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // MORE ACTIVITIES
+  // ==========================================
 
   Widget _buildMoreActivities() {
     return _buildCardWrapper(
@@ -448,6 +510,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // SUPPORT SECTION
+  // ==========================================
 
   Widget _buildSupportSection() {
     return _buildCardWrapper(
@@ -617,10 +683,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                color: subtitleColor ?? mutedText,
-              ),
+              style: TextStyle(fontSize: 10, color: subtitleColor ?? mutedText),
             ),
           ],
         ],
@@ -781,12 +844,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               badge: provider.unreadCount > 0 ? provider.unreadCount : 4,
             ),
           ),
-          _navItem(
-            Icons.person_outline_rounded,
-            'Me',
-            true,
-            () {},
-          ),
+          _navItem(Icons.person_outline_rounded, 'Me', true, () {}),
         ],
       ),
     );
